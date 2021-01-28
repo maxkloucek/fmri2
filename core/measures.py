@@ -64,7 +64,6 @@ def energy(configuration, **kwargs):
         np.sum(np.diagonal(interaction_matrix)*configuration)
     return E
 
-
 def abs_magnetisation(configuration, **kwargs):
     mag = np.mean(configuration)
     mag = abs(mag)
@@ -76,8 +75,25 @@ def magnetisation(configuration, **kwargs):
     return mag
 
 
+# think I've just discovered that this is a really slow way
+# of doing it, but oh well, its nice to have for now!
 def trajectory(configurations, observable, **kwargs):
     observable_trajectory = []
     for config in configurations:
         observable_trajectory.append(observable(config, **kwargs))
     return np.array(observable_trajectory)
+
+
+# this is a very simple error measurement!
+def error(J_true, J_traj):
+    error = []
+    for J_current in J_traj:
+        diff = abs(J_true - J_current)
+        diff = J_true - J_current
+        # diff = diff**2  # this is the squared difference summed!
+        # this depends on N, so I'm not sure this is good
+        # think it should be average!
+        # sum vs dfiff not sure
+        error.append(np.mean(diff))
+        # error.append(np.sum(diff))
+    return np.array(error)

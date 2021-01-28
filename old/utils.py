@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 
+# I can use this class thing now in alaysis script? I guess so!
+# but there just might not be a reason to!
 class get:
     def __init__(self):
         ROOT_DIR = self.root_dir()

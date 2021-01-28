@@ -5,8 +5,6 @@ from numba.typed import List
 # import measures as m
 # aha! This works!?! Don't love it though!!
 from . import measures as m
-from . import io
-
 
 
 # @njit
@@ -53,7 +51,7 @@ def build_typed_neighbour_list(interaction_matrix, d=2, TH=0):
 
 @njit
 def sim(
-        T, int_matrix, init_config, init_energy, neighbour_list,
+        int_matrix, init_config, init_energy, neighbour_list,
         tot_steps, dump_freq):
 
     no_particles = init_config.size
@@ -63,9 +61,15 @@ def sim(
     trial_indicies = np.random.randint(0, no_particles, tot_steps)
     T = 1  # do it explictly for now
     configs = []
+    energy = []
     for i in range(0, tot_steps):
+        # print(E / no_particles)
+        # this is not every 10 MCCs as it should be, this
+        # is simply every 10 steps! Good to know as
+        # oversmapling, but not gonna fix my problem!
         if(i % dump_freq == 0):
             configs.append(np.copy(config))
+            energy.append(E)
 
         trial_index = trial_indicies[i]
         dE = 0
@@ -76,7 +80,8 @@ def sim(
         connected_indices = neighbour_list[trial_index]
         for j in connected_indices:
             dE = dE - (int_matrix[trial_index, j] * config[j] * ds)
-
+        # I think I had this missing for the diagonal!!
+        dE = dE - s_new*int_matrix[trial_index, trial_index]
         if (dE / T) < 0:
             config[trial_index] = -config[trial_index]
             E = E + dE
@@ -84,7 +89,7 @@ def sim(
             if np.exp(-(dE / T)) >= rand_nos[i]:
                 config[trial_index] = -config[trial_index]
                 E = E + dE
-    return configs
+    return configs, energy
 
 
 def simulate(interaction_matrix, initial_config, mc_cycles, cycle_dumpfreq=10):
@@ -111,28 +116,25 @@ def simulate(interaction_matrix, initial_config, mc_cycles, cycle_dumpfreq=10):
 
     Examples:
     """
-    # reutrn error if shape int matrix does not match intial config!
-    # setting up:
     no_particles, _ = interaction_matrix.shape
     tot_steps = no_particles * mc_cycles
     dump_freq = no_particles * cycle_dumpfreq
-    T = 1
+    # ah nevermind, tis all good, I've
+    # T = 1  # this gets overridden later, so it's all pointless atm
+    # this is suuper messy and very concerning!
+    # T is encoded in model already, keep in mind that all
+    # E in inner function are therefore E/T!!!
+    # still have to record the non-spin normalised values!
+    # then its all working finally hurray!
+    # energy is E over T, remember this! Just cause of how
+    # I encode it in the model!
     initial_energy = m.energy(initial_config, J=interaction_matrix)
     neighbour_list = build_typed_neighbour_list(
                 interaction_matrix, d=2, TH=0)
-    trajectory = sim(
-        T, interaction_matrix, initial_config, initial_energy,
+    trajectory, energy = sim(
+        interaction_matrix, initial_config, initial_energy,
         neighbour_list, tot_steps, dump_freq)
     trajectory = np.array(trajectory)
-    '''
-    print("---- Sim Details ---- \nN = {}".format(no_particles))
-    print("DUMP FREQ:  {:0.1e} MMCs -> {:0.2e} every spin-flip attempts\n"
-          "EQ FOR:     {:0.1e} MMCs -> {:0.2e} spin-flip attempts\n"
-          "PROD FOR:   {:0.1e} MMCs -> {:0.2e} spin-flip attempts\n"
-          "TOTAL:      {:0.1e} MMCs -> {:0.2e} spin-flip attempts\n\n"
-          "  -> saving {:0.1e} configurations\n\n".format(
-              mc_cycles_dumpfreq, dumpfreq, mc_cycles_eq, eq_steps,
-              mc_cycles_prod, prod_steps, mc_cycles_eq + mc_cycles_prod,
-              tot_steps, saved_configs))
-    '''
-    return trajectory
+    # energy = np.array(energy) / no_particles
+    # lets return the raw values, not the densities!
+    return trajectory, energy
