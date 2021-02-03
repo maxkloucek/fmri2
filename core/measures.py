@@ -88,8 +88,9 @@ def trajectory(configurations, observable, **kwargs):
 def error(J_true, J_traj):
     error = []
     for J_current in J_traj:
+        # do I need a / 2 in here, because of symmetry?
         diff = abs(J_true - J_current)
-        diff = J_true - J_current
+        # diff = J_true - J_current
         # diff = diff**2  # this is the squared difference summed!
         # this depends on N, so I'm not sure this is good
         # think it should be average!

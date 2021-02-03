@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from .trajectory import get_metadata
 from .animate import animate2Dtrajectory
 from ..core import measures as m
+
+from scipy.stats import pearsonr
 # should I have a class that can do a bunch of things?
 # I think this is a better way to srttuctrue it!!
 # don't fuck with this right now!!!
@@ -45,6 +47,7 @@ class Jdataset:
         return np.array(h_traj), np.array(J_traj)
     # this should be like a sub function, not sure theres
     # anyway to implement this though, whatever, its a helper anyway!
+
     def save_show(self, fname):
         if self.save_figs is True:
             path = self.run_dir + fname
@@ -59,7 +62,10 @@ class Jdataset:
     # I should seperate out the errors :)!
 
     def compute_errors(
-            self, plot_trajectory=False, plot_matricies=False):
+            self,
+            plot_trajectory=False,
+            plot_matricies=False,
+            plot_correlation=False):
         final_error_matrix = abs(self.true_model - self.model_trajectory[-1])
         error_trajectory = m.error(self.true_model, self.model_trajectory)
 
@@ -112,6 +118,29 @@ class Jdataset:
             plt.ylabel(r'$\epsilon$')
             plt.legend()
             self.save_show('Aerror_trajectory.png')
+        # move this to its own function eventually!
+        if plot_correlation is True:
+            inferred_model = self.model_trajectory[-1]
+            h_inferred, J_inferred = self.split_diagonal(inferred_model)
+
+            inferred_parameters = np.append(h_inferred, J_inferred)
+            true_parameters = np.append(h_true, J_true)
+            pearson_coef, pearson_pval = pearsonr(
+                true_parameters, inferred_parameters)
+
+            plt.plot(
+                true_parameters, inferred_parameters, '.',
+                label=r'$r_{pcc} = $' + '{:.3f}'.format(pearson_coef))
+
+            x = np.linspace(
+                np.min(inferred_parameters), np.max(inferred_parameters), 50)
+            plt.plot(x, x, color='k')
+            plt.xlim(np.min(inferred_parameters), np.max(inferred_parameters))
+            plt.ylim(np.min(inferred_parameters), np.max(inferred_parameters))
+            plt.xlabel(r'$J_{ij} ^{True}$')
+            plt.ylabel(r'$J_{ij} ^{Inf}$')
+            plt.legend()
+            plt.show()
 
     # defalts to the last step!
     def compute_histogram(
@@ -132,6 +161,19 @@ class Jdataset:
             plt.hist(hs, bins=bins, alpha=0.5)
             plt.hist(Js, bins=bins, alpha=0.5)
             self.save_show(fname)
+
+    def compute_raw_values(self, comapre_to_true=True):
+        h_traj, J_traj = self.reform_split_trajectory()
+        print(h_traj.shape, J_traj.shape)
+        for c, hi in enumerate(np.swapaxes(h_traj, 0, 1)):
+            plt.plot(hi)
+        plt.axhline(self.true_model[0, 0], 0, 1)
+        plt.show()
+
+    # def compute_model_correaltion(self):
+
+
+
 
 
 

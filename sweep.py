@@ -79,6 +79,7 @@ def parameter_update(
         data_spin_matrix, model_spin_matrix, J_current, learning_rate=0.1):
     # x = x - alpha (Sd - Sm)
     dS = data_spin_matrix - model_spin_matrix
+    # maybe I need a smaller learning rate!
     J_new = J_current + learning_rate * dS
     return J_new
 
