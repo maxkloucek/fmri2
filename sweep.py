@@ -84,6 +84,17 @@ def parameter_update(
     return J_new
 
 
+# I could have this bee one whole function, where gen spin matrix
+# calls correlations!
+def pupdate2(trajectory, data_spin_matrix, J_current, learning_rate=0.1):
+    si_model, sij_model, si_sj_model = m.correlations(trajectory)
+    model_spin_matrix = aux.gen_spin_matrix(si_model, sij_model)
+    dS = data_spin_matrix - model_spin_matrix
+    # maybe I need a smaller learning rate!
+    J_new = J_current + learning_rate * dS
+    return J_new
+
+
 # what if I start with a gaussian, is that cheating? Guess so!
 # but not raelly because the noise will be all wrong!
 # this should get moved to a different file!!
@@ -91,15 +102,48 @@ def parameter_update(
 # maybe I should use kwargs here?!? think so!
 # maybe simple sim shouldn't have a run directory?!
 # maybe it should, I suppose I still want to save stuff!
-def gradient_descent(
+def gradient_descent_anneal(
         run_directory, model_initialisation, data_spin_matrix, metadata,
-        GD_steps=10, MCCs_eq=100000, MCCs_prod=100000,
+        GD_steps=10, MCCs_init_eq=100000, MCCs_anneal_step=100000,
         reps=1, cycle_dumpfreq=10):
-    print("hello")
     model = model_initialisation
     N, _ = model.shape
     model_trajectory = np.zeros((GD_steps, N, N))  # contains updated models!
     print(model_trajectory.shape, model_trajectory[0].shape)
+    # I could probably have this bit in the loop, its a bit hacked atm!
+    initial_config = aux.initialise_ising_config(N, 0)
+    eq_traj, eq_energy = mc.simulate(
+            model, initial_config, MCCs_init_eq, cycle_dumpfreq)
+    model = pupdate2(eq_traj, data_spin_matrix, model)
+    model_trajectory[0] = model
+    initial_config = eq_traj[-1]
+    # si_model, sij_model, si_sj_model = m.correlations(eq_traj)
+    # model_spin_matrix = aux.gen_spin_matrix(si_model, sij_model)
+    # model = parameter_update(data_spin_matrix, model_spin_matrix, model)
+    # now saving the whole trajectory makes a bit more sense as well!
+    for step in range(1, GD_steps):
+        print('GD step: {}'.format(step))
+        trajectory_eq, energy_eq = mc.simulate(
+            model, initial_config, MCCs_init_eq, cycle_dumpfreq)
+        initial_config = trajectory_eq[-1]
+        trajectory, energy = mc.simulate(
+            model, initial_config, MCCs_anneal_step, cycle_dumpfreq)
+
+        model = pupdate2(trajectory, data_spin_matrix, model)
+        model_trajectory[step] = model
+        initial_config = trajectory[-1]
+    return model_trajectory
+
+
+def gradient_descent(
+        run_directory, model_initialisation, data_spin_matrix, metadata,
+        GD_steps=10, MCCs_eq=100000, MCCs_prod=100000,
+        reps=1, cycle_dumpfreq=10):
+    model = model_initialisation
+    N, _ = model.shape
+    model_trajectory = np.zeros((GD_steps, N, N))  # contains updated models!
+    print(model_trajectory.shape, model_trajectory[0].shape)
+    # change this so its no eq and only thing
     for step in range(0, GD_steps):
         print(step)
         trajectory = simple_sim(

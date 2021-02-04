@@ -7,27 +7,40 @@ from numba.typed import List
 from . import measures as m
 
 
+# I should have this get called in build typed neighbour list!
+def average_neighbour_count(neighbour_list):
+    no_neighbours_list = [len(neighbours)for neighbours in neighbour_list]
+    return np.mean(no_neighbours_list)
+
+
 # @njit
-def build_neighbour_list(interaction_matrix, d=2, TH=0):
+def build_neighbour_list(interaction_matrix, d, TH):
     # this is to make sure self isn't included in neighbour list keeping,
     # as self interaction is different to pair interaction!
     # looks like it doesnt really always work!
     no_particles, _ = interaction_matrix.shape
     J_neighbours = np.copy(interaction_matrix)
     np.fill_diagonal(J_neighbours, 0)
-
+    # does this work for h=!0? Need to check & be careful I think?
     nonzero_list = np.argwhere(np.abs(J_neighbours) > TH)
     neighbour_list = [[] for _ in range(no_particles)]
     neighbour_length, _ = nonzero_list.shape
     for i in range(0, neighbour_length):
         list_index = nonzero_list[i, 0]
         neighbour_list[list_index].append(nonzero_list[i, 1])
-    # print(neighbour_list)
+    # no_neighbour = average_neighbour_count(neighbour_list)
+    # print('Mean No. Neighbours = {}'.format(no_neighbour))
     return neighbour_list
 
 
 # @njit
 def build_typed_neighbour_list(interaction_matrix, d=2, TH=0):
+    # lets set a dynmaic threshodl!? How exactly to cope?
+    # setting some resoltuion relative to the max where we count
+    # it as essentailly being zero? so this is set at 1% of max
+    # I feel like 10% of max is too extreme, but lets try it anyway
+    # TH = np.max(abs(interaction_matrix)) * 0.01
+    # print(TH)
     neighbour_list = build_neighbour_list(interaction_matrix, d, TH)
     typed_neighbour_list = List()
     for i in range(len(neighbour_list)):
@@ -130,7 +143,7 @@ def simulate(interaction_matrix, initial_config, mc_cycles, cycle_dumpfreq=10):
     # I encode it in the model!
     initial_energy = m.energy(initial_config, J=interaction_matrix)
     neighbour_list = build_typed_neighbour_list(
-                interaction_matrix, d=2, TH=0)
+                interaction_matrix, d=2, TH=0)  # this needs to be accessable!
     trajectory, energy = sim(
         interaction_matrix, initial_config, initial_energy,
         neighbour_list, tot_steps, dump_freq)

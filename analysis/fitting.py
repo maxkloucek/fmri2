@@ -131,16 +131,15 @@ class Jdataset:
             plt.plot(
                 true_parameters, inferred_parameters, '.',
                 label=r'$r_{pcc} = $' + '{:.3f}'.format(pearson_coef))
-
+            # print(np.min(inferred_parameters), np.max(inferred_parameters))
             x = np.linspace(
-                np.min(inferred_parameters), np.max(inferred_parameters), 50)
+                np.min(true_parameters), np.max(true_parameters), 50)
             plt.plot(x, x, color='k')
-            plt.xlim(np.min(inferred_parameters), np.max(inferred_parameters))
-            plt.ylim(np.min(inferred_parameters), np.max(inferred_parameters))
             plt.xlabel(r'$J_{ij} ^{True}$')
             plt.ylabel(r'$J_{ij} ^{Inf}$')
             plt.legend()
             plt.show()
+        return error_trajectory
 
     # defalts to the last step!
     def compute_histogram(
@@ -158,8 +157,9 @@ class Jdataset:
         bins = np.linspace(vmin, vmax, nbins)
         if separate_diagonal is True:
             hs, Js = self.split_diagonal(model)
-            plt.hist(hs, bins=bins, alpha=0.5)
-            plt.hist(Js, bins=bins, alpha=0.5)
+            plt.hist(hs, bins=bins, label='hs', alpha=0.5)
+            plt.hist(Js, bins=bins, label='Js', alpha=0.5)
+            plt.legend()
             self.save_show(fname)
 
     def compute_raw_values(self, comapre_to_true=True):
@@ -171,11 +171,6 @@ class Jdataset:
         plt.show()
 
     # def compute_model_correaltion(self):
-
-
-
-
-
 
 
 '''
