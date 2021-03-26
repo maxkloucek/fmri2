@@ -17,6 +17,17 @@ def get_metadata(run_dir):
     return metadata
 
 
+# these things are also saving the energy I think, so beware!
+# as always cleaning up code is needed!
+def get_trajectory(run_dir, traj_label=0):
+    fname = run_dir + 'c{}r0trajectory.npz'.format(traj_label)
+    with open(fname, 'rb') as fin:
+        traj = np.load(fin)
+        eq_traj = traj['eq_traj']
+        prod_traj = traj['prod_traj']
+    return eq_traj, prod_traj
+
+
 def plotHist(run_dirs, nbins=100):
     fig, ax = plt.subplots(2, 1)
     ax = ax.ravel()

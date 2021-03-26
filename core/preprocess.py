@@ -81,12 +81,12 @@ def average_spin_matrix(days, i=0, j=0):
     spin_matricies = np.array(spin_matricies)
 
     # obs = []
-    fig, ax = plt.subplots(3, 3)
-    ax = ax.ravel()
-    for c, matrix in enumerate(spin_matricies[0:9]):
-        ax[c].imshow(matrix)
-        # obs.append(matrix[i, j])
+    # fig, ax = plt.subplots(3, 3)
+    # ax = ax.ravel()
+    # for c, matrix in enumerate(spin_matricies[0:9]):
+    #    ax[c].imshow(matrix)
+    #    # obs.append(matrix[i, j])
     # plt.hist(obs, 25)
-    plt.show()
+    # plt.show()
     avrg_spin_matrix = np.mean(spin_matricies, axis=0)
     return avrg_spin_matrix

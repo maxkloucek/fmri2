@@ -5,6 +5,7 @@ from numba.typed import List
 # import measures as m
 # aha! This works!?! Don't love it though!!
 from . import measures as m
+from . import aux
 
 
 # I should have this get called in build typed neighbour list!

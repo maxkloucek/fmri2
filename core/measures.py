@@ -64,6 +64,7 @@ def energy(configuration, **kwargs):
         np.sum(np.diagonal(interaction_matrix)*configuration)
     return E
 
+
 def abs_magnetisation(configuration, **kwargs):
     mag = np.mean(configuration)
     mag = abs(mag)
@@ -98,3 +99,56 @@ def error(J_true, J_traj):
         error.append(np.mean(diff))
         # error.append(np.sum(diff))
     return np.array(error)
+
+
+def self_correlation(spin_trajectory, start_time):
+    # f(t-tw) how do I construct this...?
+    # make a sort of histogram?
+    # the final thing should be a function of deltaT
+    # i.e. the delay (tw)
+    # spin_trajectory = spin_trajectory[start_time:, :]
+    B, N = spin_trajectory.shape
+    print(B)
+    print('----')
+    # x = B
+    x = 1
+    start_times = np.arange(0, x)  # B!
+    # self_corr = []
+    self_correlations = np.zeros((x, B))
+    self_correlations[self_correlations == 0] = np.nan
+    print(self_correlations.shape)
+    # start_times = [0]
+    for start_time in start_times:
+        spin_traj = np.copy(spin_trajectory)
+        spin_traj = spin_traj[start_time:, :]
+        print(spin_traj.shape)
+        B, N = spin_traj.shape
+        delays = np.arange(0, B)
+        # delays = np.arange(0, 1)
+        for delay in delays:
+            spins = spin_traj[0, :]
+            spins_delayed = spin_traj[delay, :]
+            delayed_correlation = (np.mean(spins * spins_delayed))
+            self_correlations[start_time, delay] = delayed_correlation
+    # I'm not sure this is right yet...
+
+    print(self_correlations)
+    means = np.nanmean(self_correlations, axis=0)
+    print(means.shape)
+        # print(start_time)
+        # spin_trajectory = spin_trajectory[start_time:, :]
+        # B, N = spin_trajectory.shape
+        # delays = np.arange(0, B)
+        # print(B)
+        # delayed_correlation = np.zeros(B)
+        # delayed_correlation[delayed_correlation == 0] = np.nan
+
+            # delayed_correlation[delay] = (np.mean(spins * spins_delayed))
+        # self_corr.append(self_corr_t)
+        # self_corr.append(delayed_correlation)
+    # self_corr = np.array(self_corr)
+    # for corr in self_corr:
+    #    print(len(corr))
+    # print(self_corr.shape)
+    # print(self_corr[-1].shape)
+    return means
