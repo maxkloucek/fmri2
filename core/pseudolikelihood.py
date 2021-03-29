@@ -12,147 +12,86 @@ def logistic_function(x):
     return 1 / (1 + np.exp(-x))
 
 
-# x = np.linspace(-6, 6, 100)
-# y = logistic_function(x)
-# plt.plot(x, y)
-# plt.show()
+def pseudo_loglikelihoodF(Jtriu, spin=None): #add lamba parameter* norm of J sum of abs values (sum aboslute values and multiply by lambda)
+    N = spin.shape[1]
+    B = spin.shape[0]
+    beta = 1
+    # require Jij = Jji
+    J = np.zeros((N, N))
+    row, col = np.triu_indices(N, k=1)
+
+    J[row, col] = Jtriu
+    J += J.T
+    plt.imshow(J)
+    plt.show()
+    # note: -log 1/P = log P
+    f = np.mean(np.log(
+        1+np.exp(
+            -2*beta*(spin@J)*spin)
+    ),
+        axis=0
+    )
+    print(f)
+    assert len(f) == N, 'Wrong dimensions'
+    # print (f.sum())
+    # print(Jtriu, Jtriu.min())
+    print(f.sum())
+    # f = con
+    return f.sum()
 
 
-
-# I want do def f(x) where x is a vector of the parameters that minimize that
-# I want to find
-# args will be my data I suppose?
-# maybe it means to update them all? I really don't know!
-# work out porb and calc mean of all nd probs for all B
-def row_log_likelihood(spin_index, configurations, parameter_matrix):
-    probs = [
-        conditional_probability(spin_index, config, parameter_matrix)
-        for config in configurations]
-    log_liklelihood = np.mean(np.log(probs))
-    return log_liklelihood
+def PSL_spin_vector(row_index, configuration):
+    spin_vector = np.copy(configuration)
+    spin_vector *= spin_vector[row_index]
+    spin_vector[row_index] = configuration[row_index]
+    return spin_vector
 
 
-def log_pseudo_liklelihoods(configurations, parameter_matrix):
-    # N by N things
-    B, N = configurations.shape
-    print(B, N)
-    likelihoods = [
-        row_log_likelihood(spin_index, configurations, parameter_matrix)
-        for spin_index in range(0, N)]
-    likelihoods = np.array(likelihoods)
-    print(likelihoods.shape)
-    # for spin_index in range(0, N):
-    # summing stuff
-    # x is a 1D array length N for our minimsation here!
+# beta explicitly set to 1 everywhere!
+def PSL_exponent(row_parameters, row_index, configuration):
+    row_spin_combinations = PSL_spin_vector(row_index, configuration)
+    exponent = 2 * np.dot(row_spin_combinations, row_parameters)
+    return exponent
+
+
+# this is what I want to minimize for each row!
+def PSL_row(row_parameters, row_index, configurations):
+    # so stuff for each sample and then mean over samples
+    log_probabilities = []
+    for configuration in configurations:
+        # SPIN VECTOR:
+        # row_spin_combinations = PSL_spin_vector(row_index, configuration)
+        # exponent = 2 * np.dot(row_spin_combinations, row_parameters)
+        exponent = PSL_exponent(row_parameters, row_index, configuration)
+        # print(configuration.shape, configuration)
+        log_probabilities.append(np.log(1 + np.exp(-exponent)))
+    row_pseudo_LL = np.mean(log_probabilities)
+    return row_pseudo_LL
+
+
+def PSL_row_gradient():
     return 0
 
 
-# this could be used to do my MC flipping as well!!!!
-# cause this is the local change!!!
-# opportunity to clean up my code?
-# sign convention?!?
-# shall I call it row index? row index = spin index
-def conditional_energy(spin_index, configuration, parameter_matrix):
-    # -hisi -si sum(Jij sj) for j != i
-    # paramter matrix (N,N) symmetric matrix, diagonal = vect(h)
-    # plt.imshow(parameter_matrix)
-    # plt.show()
-    # print(configuration)
-    # WRONG AND BROKEN!
-    i = spin_index
-    selected_spin = configuration[i]
-    spin_products = np.copy(configuration) * selected_spin
-    spin_products[i] = selected_spin
-    parameter_row = parameter_matrix[i, :]
-    E = - np.sum(parameter_row * spin_products)
-
-    # print(parameter_matrix)
-    # print(parameter_row)
-    # print(selected_spin)
-    # print(spin_products)  # ok I think this works!
-    # print(E)
-    return E
-
-
-def conditional_probability(parameter_row, row_index, configuration):
-    i = row_index
-    selected_spin = configuration[i]
-    spin_products = np.copy(configuration) * selected_spin
-    spin_products[i] = selected_spin
-    # -ves in here somewhere!!
-    exponent = - 2 * np.sum(parameter_row * spin_products)
-    probability = logistic_function(exponent)
-    # print(probability)
-    return probability
-
-
-# configurations shape (B, N)
-def sub_pseudo_likelihood(parameter_row, spin_index, configurations):
-    # print(parameter_row, spin_index)
+# this function does it for each row indivdually!
+def maxPSL(Jguess, configurations):
     B, N = configurations.shape
-    log_probabilities = 0
-    for sample in range(0, B):
-        # config = configurations[sample, :]
-        log_probabilities += np.log(conditional_probability(
-            parameter_row, spin_index, configurations))
-    # -ve of obejctive to minimize rather than amximise?
-    return -(log_probabilities / B)
-
-
-def maximise_row(spin_index, configurations):
-    B, N = configurations.shape
-    parameter_row0 = np.zeros(N)
-    res = minimize(
-        physics_f,
-        x0=parameter_row0,
-        args=(spin_index, configurations),
-        method='Nelder-Mead',
-        # options={'disp': True, 'maxiter': 20}
+    print(Jguess.shape, configurations.shape)
+    # x = []
+    print(Jguess)
+    Jinferred = np.zeros_like(Jguess)
+    for spin in range(0, N):
+        print('Row {} of {}'.format(spin, N))
+        # do the minimisation (giving each row)
+        res = minimize(
+            PSL_row,
+            x0=Jguess[spin],
+            args=(spin, configurations),
+            method='L-BFGS-B'
+            # options={'disp': True, 'maxiter': 20}
         )
-    print(res.x)
-    print(res.message)
-    return res.x
-
-
-
-def physics_f(parameters, spin_index, configurations):
-    # si*hi + Jijsj for j!=i
-    B, N = configurations.shape
-    ln_probs = []
-    for configuration in configurations:
-        s_r = configuration[spin_index]
-        s_vector = np.copy(configuration)
-        s_vector[spin_index] = s_r
-        exponent = -2 * np.sum(s_vector * parameters)
-        # we minimize - this function in PRL!
-        # maybe I had too many negatives kicking around!!
-        ln_probs.append(np.log(1 + np.exp(exponent)))
-    return np.mean(ln_probs)
-
-# maybe I write a function for everything and try to minimize that
-# here we go again!
-
-
-def maximise_all(configurations):
-    B, N = configurations.shape
-    parameters_init = np.zeros((N, N))
-    res = minimize(
-        log_pseudo_likelihood,
-        x0=parameters_init,
-        args=(configurations),
-        method='L-BFGS-B',
-        options={'disp': True, 'maxiter': 20}
-        )
-    return res.x
-
-
-# parameter_matrix has field on diagonal, couplings off diagonal
-def log_pseudo_likelihood(parameter_matrix, configurations):
-    B, N = configurations.shape
-    row_log_likelihoods = []
-    for spin_index in range(0, N):
-        parameter_row = parameter_matrix[spin_index]
-        row_log_likelihoods.append(
-            sub_pseudo_likelihood(parameter_row, spin_index, configurations))
-    return np.mean(row_log_likelihoods)
-# whoops should have been mean not sum! (not sure this matters massively)?
+        Jinferred[spin] = res.x
+        # x.append(PSL_row(res.x, spin, configurations))
+    # LL = np.sum(x)
+    # print(LL)
+    return Jinferred
