@@ -61,6 +61,36 @@ class Jdataset:
     # decides if to save or plt!
     # I should seperate out the errors :)!
 
+    #(n,) dim numpy arrays
+    def relative_error(self, true_model, inferred_model):
+        # call it parameters rather than model??
+        sqr_diff = np.sum((inferred_model - true_model) ** 2)
+        sqr_sum = np.sum(true_model ** 2)
+        mean_error = np.mean((inferred_model - true_model) ** 2) ** 0.5
+        return mean_error
+        # return (sqr_diff / sqr_sum) ** 0.5
+    def compute_relative_error(self,):
+        # split diagonal and calc errors seperately for both!
+        # "gamma" error as defined in Advances in Physics 2017 Nguyen et al.
+        # relative construction error.
+        h_true, J_true = self.split_diagonal(self.true_model)
+        true_parameters = np.append(h_true, J_true)
+        h_inferred, J_inferred = self.split_diagonal(self.model_trajectory[-1])
+        inferred_parameters = np.append(h_inferred, J_inferred)
+
+        h_err = self.relative_error(h_true, h_inferred)
+        J_err = self.relative_error(J_true, J_inferred)
+        tot_err = self.relative_error(true_parameters, inferred_parameters)
+        print(h_err, J_err, tot_err)
+        errors = (true_parameters - inferred_parameters)
+        # let's do the histogram!
+        # wait this inst quite rigth yet! I want to have array of errors!
+        plt.hist(errors, bins=100)
+        plt.show()
+        # I should print the distribution of these as well cause I think a few
+        # contirbute a lot!
+        return 0
+
     def compute_errors(
             self,
             plot_trajectory=False,
