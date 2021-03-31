@@ -119,8 +119,6 @@ def maxPSL(Jguess, configurations, analytical_gradient=False):
 # should this be a class that has acess to confgiruations?
 # this function does it for each row indivdually!
 def maxPSL_parallel(Jguess, configurations, analytical_gradient=False):
-    res = Parallel(n_jobs=1, verbose=10)(delayed(np.sqrt)(i) for i in range(10))
-    print(res)
     B, N = configurations.shape
     print(Jguess.shape, configurations.shape)
     # x = []

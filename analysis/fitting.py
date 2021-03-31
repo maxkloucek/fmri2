@@ -69,6 +69,7 @@ class Jdataset:
         mean_error = np.mean((inferred_model - true_model) ** 2) ** 0.5
         return mean_error
         # return (sqr_diff / sqr_sum) ** 0.5
+
     def compute_relative_error(self,):
         # split diagonal and calc errors seperately for both!
         # "gamma" error as defined in Advances in Physics 2017 Nguyen et al.
@@ -175,18 +176,23 @@ class Jdataset:
     def compute_histogram(
             self, gd_step=-1,
             nbins=100, true_model=False, separate_diagonal=True):
-        if true_model is True:
-            model = self.true_model
-            fname = 'ATruehistogram.png'
-        else:
-            model = self.model_trajectory[gd_step]
-            fname = 'Ahistogram_step{}.png'.format(gd_step)
 
+        model = self.model_trajectory[gd_step]
         vmax = np.max(model)
         vmin = np.min(model)
         bins = np.linspace(vmin, vmax, nbins)
+        fname = 'Ahistogram_step{}.png'.format(gd_step)
+
+        if true_model is True:
+            hs_true, Js_true = self.split_diagonal(self.true_model)
+            plt.hist(hs_true, bins=bins, histtype='step')
+            plt.hist(Js_true, bins=bins, histtype='step')
+            # fname = 'ATruehistogram.png'
+
         if separate_diagonal is True:
             hs, Js = self.split_diagonal(model)
+            print('Means:')
+            print(np.mean(hs), np.mean(Js))
             plt.hist(hs, bins=bins, label='hs', alpha=0.5)
             plt.hist(Js, bins=bins, label='Js', alpha=0.5)
             plt.legend()
