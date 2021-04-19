@@ -18,13 +18,13 @@ from timeit import default_timer as timer
 L = 3
 N = 10  # L ** 2
 
-rn = 'PSL_N{}_10^6datapoints'.format(N)
+rn = 'PSL_N{}_10^4datapoints'.format(N)
 run_dir = join('.', rn)
 print(run_dir)
 Path(run_dir).mkdir(exist_ok=True)
 
-cycles_eq = 1 * (10 ** 5)
-cycles_prod = 1 * (10 ** 6)
+cycles_eq = 1 * (10 ** 4)
+cycles_prod = 1 * (10 ** 4)
 reps = 1
 cycle_dumpfreq = 10
 

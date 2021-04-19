@@ -1,0 +1,12 @@
+{
+    "RunDirectory": "./PSL_N10_10^4datapoints",
+    "SystemSize": 9,
+    "EqCycles": 10000,
+    "ProdCycles": 10000,
+    "CycleDumpFreq": 10,
+    "Repetitions": 1,
+    "SweepParameterName": "T",
+    "SweepParameterValues": [
+        1.0
+    ]
+}
