@@ -80,7 +80,7 @@ def sim(
         # print(E / no_particles)
         # this is not every 10 MCCs as it should be, this
         # is simply every 10 steps! Good to know as
-        # oversmapling, but not gonna fix my problem!
+        # oversmapling, but not gonna fix my problem! FIXED ALREADY
         if(i % dump_freq == 0):
             configs.append(np.copy(config))
             energy.append(E)

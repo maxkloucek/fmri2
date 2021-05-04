@@ -20,6 +20,7 @@ setup(
         'scikit-learn>=0.24.1',
         'scipy>=1.6.2',
         'six>=1.15.0',
-        'threadpoolctl>=2.1.0'
+        'threadpoolctl>=2.1.0',
+        'h5py>=3.2.1'
     ]
 )

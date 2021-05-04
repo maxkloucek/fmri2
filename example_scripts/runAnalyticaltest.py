@@ -1,10 +1,10 @@
 import json
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 import inference.core.io as io
 import inference.core.aux as aux
-import inference.core.measures as m
+# import inference.core.measures as m
 import inference.core.pseudolikelihood as plmax
 import inference.core.analytical as analytical
 import inference.analysis.fitting as afit
@@ -30,11 +30,13 @@ cycle_dumpfreq = 10
 
 pname = 'T'
 # pvals = np.array([3])
-# models = [aux.ising_interaction_matrix_2D_PBC2(L, T=val, h=0) for val in pvals]
+# models =
+# [aux.ising_interaction_matrix_2D_PBC2(L, T=val, h=0) for val in pvals]
 # need to get a better way to put these values in here! Anyway, OK for now!
 # i want to have histograms overlap!
 pvals = np.array([1.0])
-models = [aux.SK_interaction_matrix(N, T=val, h=0.0, jmean=1.0) for val in pvals]
+models = [
+    aux.SK_interaction_matrix(N, T=val, h=0.0, jmean=1.0) for val in pvals]
 
 model = models[0]
 

@@ -3,3 +3,4 @@ __pycache__
 example_scripts/PSL_*
 ./PSL_*
 ./*.egg-info
+**/*.hdf5
