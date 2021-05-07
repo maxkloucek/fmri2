@@ -5,9 +5,11 @@ import inference.preprocess as pp
 import inference.tools as tools
 plt.style.use('~/Devel/styles/custom.mplstyle')
 
-all_raw, _, _ = pp.load('all')
+all_raw, all_z, _ = pp.load('all')
 reshaped_data = pp.reshape_multiday_data(all_raw)
 
+pp.histogram(all_raw)
+plt.show()
 example_data = all_raw[0, :, 66]
 print(example_data.shape)
 

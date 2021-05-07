@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 # I want these to have the full path already!
 # append an identifier, e.g. .npz for data, and .config.png
 # for configurations!
+# this will become obsolete soon!!
 
 
 def save_npz(fname, **kwargs):
@@ -26,3 +27,7 @@ def save_2Dconfig_image(fname, config, label, labelval):
     plt.savefig(path_out, dpi=600)
     plt.close()
     # plt.show()
+
+
+def check_output_file_exists():
+    return 0

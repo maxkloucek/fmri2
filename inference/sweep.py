@@ -1,5 +1,6 @@
 import numpy as np
 # import matplotlib.pyplot as plt
+import h5py
 
 from os.path import join
 
@@ -9,44 +10,73 @@ from .core import montecarlo as mc
 from .core import io as io
 
 
-# just save don't return anything now!
-# I want an option to initialise the sim differently as well
-# eq the slow annelaing, where you use final of last each time!
 def parameter_sweep(
         run_directory, models, metadata,
         MCCs_eq=100000, MCCs_prod=100000, reps=1, cycle_dumpfreq=10):
 
     N, _ = models[0].shape
-    for c, model in enumerate(models):
-        for rep in range(0, reps):
-            initial_config = aux.initialise_ising_config(N, 0)
+    samples_eq = int(MCCs_eq / cycle_dumpfreq)
+    samples_prod = int(MCCs_prod / cycle_dumpfreq)
+    samples_tot = samples_eq + samples_prod
+    with h5py.File(
+            run_directory + "/full_dataset_mc.hdf5",
+            "w", track_order=True) as f:
+        for key, val in metadata.items():
+            f.attrs[key] = val
 
-            eq_traj, eq_energy = mc.simulate(
-                model, initial_config, MCCs_eq, cycle_dumpfreq)
-            eq_config = eq_traj[-1]
-            '''
-            fname = join(run_directory, str(c) + 'eq')
-            io.save_2Dconfig_image(
-                fname, eq_config,
-                label=metadata['ParameterName'],
-                labelval=metadata['ParameterValues'][c])
-            '''
-            prod_traj, prod_energy = mc.simulate(
-                model, eq_config, MCCs_prod, cycle_dumpfreq)
-            '''
-            fname = join(run_directory, str(c) + 'fin')
-            io.save_2Dconfig_image(
-                fname, prod_traj[-1],
-                label=metadata['ParameterName'],
-                labelval=metadata['ParameterValues'][c])
-            '''
-            fname = join(run_directory, 'c{}r{}trajectory'.format(c, rep))
-            io.save_npz(
-                fname,
-                eq_traj=eq_traj, eq_E=eq_energy,
-                prod_traj=prod_traj, prod_E=prod_energy)
-        print(c, metadata['SweepParameterValues'][c])
-    return 0
+        for c, model in enumerate(models):
+            for rep in range(0, reps):
+                initial_config = aux.initialise_ising_config(N, 0)
+
+                eq_traj, eq_energy = mc.simulate(
+                    model, initial_config, MCCs_eq, cycle_dumpfreq)
+                eq_config = eq_traj[-1]
+
+                prod_traj, prod_energy = mc.simulate(
+                    model, eq_config, MCCs_prod, cycle_dumpfreq)
+
+                group_label = (
+                    metadata['SweepParameterName'] +
+                    '={:.2f}'.format(metadata['SweepParameterValues'][c]))
+
+                print(group_label)
+                group = f.create_group(group_label)
+
+                energy_ds = group.create_dataset(
+                    "energy",
+                    (samples_tot),
+                    compression="gzip")
+
+                energy_ds[:samples_eq] = eq_energy
+                energy_ds[samples_eq:] = prod_energy
+
+                config_ds = group.create_dataset(
+                    "configurations",
+                    (samples_tot, N),
+                    compression="gzip")
+
+                config_ds[:samples_eq, :] = eq_traj
+                config_ds[samples_eq:] = prod_traj
+
+                # print('----')
+                # print(energy_ds.shape, config_ds.shape)
+                # group.create_dataset(
+                #    "eq-configs", data=eq_traj)[()] = eq_traj
+                # group.create_dataset(
+                #    "prod-configs", data=eq_traj)[()] = prod_traj
+                # group.create_dataset(
+                #    "eq-energies", data=eq_energy)[()] = eq_energy
+                # group.create_dataset(
+                #    "prod-energies", data=eq_energy)[()] = prod_energy
+                # theres got to be a better way to do this!
+                # full_trajectory = np.vstack((eq_traj, prod_traj))
+                '''
+                fname = join(run_directory, 'c{}r{}trajectory'.format(c, rep))
+                io.save_npz(
+                    fname,
+                    eq_traj=eq_traj, eq_E=eq_energy,
+                    prod_traj=prod_traj, prod_E=prod_energy)
+                '''
 
 
 # takes in model, returns the interaction stuff!

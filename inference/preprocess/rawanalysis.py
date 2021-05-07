@@ -41,8 +41,10 @@ def histogram(trajectory, nbins=200):
 
     nfit, fit_params, residuals = tools.gaussian_fit(x, n)
 
-    ax[0].plot(x, nfit, label="A:{:.2f} mu:{:.2f} sig:{:.2f}".format(
-        fit_params[0], fit_params[1], fit_params[2]))
+    ax[0].plot(
+        x, nfit, marker=',',
+        label="A:{:.2f} mu:{:.2f} sig:{:.2f}".format(
+            fit_params[0], fit_params[1], fit_params[2]))
     ax[0].legend()
     ax[0].set_yscale('log')
 

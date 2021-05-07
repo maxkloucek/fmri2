@@ -5,13 +5,7 @@ from numba.typed import List
 # import measures as m
 # aha! This works!?! Don't love it though!!
 from . import measures as m
-from . import aux
-
-
-# I should have this get called in build typed neighbour list!
-def average_neighbour_count(neighbour_list):
-    no_neighbours_list = [len(neighbours)for neighbours in neighbour_list]
-    return np.mean(no_neighbours_list)
+# from . import aux
 
 
 # @njit
@@ -29,8 +23,6 @@ def build_neighbour_list(interaction_matrix, d, TH):
     for i in range(0, neighbour_length):
         list_index = nonzero_list[i, 0]
         neighbour_list[list_index].append(nonzero_list[i, 1])
-    # no_neighbour = average_neighbour_count(neighbour_list)
-    # print('Mean No. Neighbours = {}'.format(no_neighbour))
     return neighbour_list
 
 
@@ -74,16 +66,25 @@ def sim(
     rand_nos = np.random.random(tot_steps)
     trial_indicies = np.random.randint(0, no_particles, tot_steps)
     T = 1  # do it explictly for now
-    configs = []
-    energy = []
+    # configs = []
+    # energy = []
+    no_sampled_points = int(tot_steps / dump_freq)
+    # print(no_sampled_points)
+    # let's create them as np arrays of the correct size first & fill them in!
+    configs = np.empty((no_sampled_points, no_particles))
+    energy = np.empty((no_sampled_points))
+    dump_counter = 0
     for i in range(0, tot_steps):
         # print(E / no_particles)
         # this is not every 10 MCCs as it should be, this
         # is simply every 10 steps! Good to know as
         # oversmapling, but not gonna fix my problem! FIXED ALREADY
         if(i % dump_freq == 0):
-            configs.append(np.copy(config))
-            energy.append(E)
+            # configs.append(np.copy(config))
+            # energy.append(E)
+            configs[dump_counter, :] = np.copy(config)
+            energy[dump_counter] = E
+            dump_counter += 1
 
         trial_index = trial_indicies[i]
         dE = 0
@@ -142,6 +143,8 @@ def simulate(interaction_matrix, initial_config, mc_cycles, cycle_dumpfreq=10):
     # then its all working finally hurray!
     # energy is E over T, remember this! Just cause of how
     # I encode it in the model!
+    # there are problems here to do with memory if my sim gets too long!
+    # I should really address this!
     initial_energy = m.energy(initial_config, J=interaction_matrix)
     neighbour_list = build_typed_neighbour_list(
                 interaction_matrix, d=2, TH=0)  # this needs to be accessable!
@@ -151,4 +154,5 @@ def simulate(interaction_matrix, initial_config, mc_cycles, cycle_dumpfreq=10):
     trajectory = np.array(trajectory)
     # energy = np.array(energy) / no_particles
     # lets return the raw values, not the densities!
+    # now I want to save it with a h5py thing
     return trajectory, energy
