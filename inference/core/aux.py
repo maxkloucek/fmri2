@@ -1,4 +1,5 @@
 import numpy as np
+from pathlib import Path
 
 '''
 def ising_interaction_matrix_2D_PBC(L, h, jval):
@@ -27,6 +28,7 @@ def ising_interaction_matrix_2D_PBC(L, h, jval):
     np.fill_diagonal(J, h)
     return J
 '''
+
 
 # you feed in T and h and jval get divided by it!
 # I dont really see how this will make all that much of a difference...
@@ -100,3 +102,24 @@ def gen_spin_matrix(si, sij):
     spin_matrix = np.copy(sij)
     spin_matrix[np.diag_indices_from(spin_matrix)] = si  # fills diagonal
     return spin_matrix
+
+
+# don't use this anymore!
+# I should really clean up my "codebase"
+def set_metadata(
+        run_dir, N, pname, pvals,
+        cycles_eq=1 * (10 ** 4),
+        cycles_prod=5 * (10 ** 4),
+        cycle_dumpfreq=10, reps=1):
+
+    Path(run_dir).mkdir(exist_ok=True)
+    md = {
+        'RunDirectory': run_dir,
+        'SystemSize': N,
+        'EqCycles': cycles_eq,
+        'ProdCycles': cycles_prod,
+        'CycleDumpFreq': cycle_dumpfreq,
+        'Repetitions': reps,
+        'SweepParameterName': pname,
+        'SweepParameterValues': pvals.tolist()}
+    return md

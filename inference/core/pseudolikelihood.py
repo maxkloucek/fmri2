@@ -1,9 +1,19 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import h5py
+import pathlib
+# import matplotlib.pyplot as plt
+
+from timeit import default_timer as timer
+from os.path import join
 
 from scipy.optimize import minimize
 from joblib import Parallel, delayed
 
+import inference.core.analytical as analytical
+
+from inference.io import Readhdf5_mc
+
+h5py.get_config().track_order = True
 # coding up the stuff
 # waximise the sum over the individaul things.
 # " solve N independent gradient-descent problems in N variables"
@@ -13,9 +23,11 @@ def logistic_function(x):
     return 1 / (1 + np.exp(-x))
 
 
-def pseudo_loglikelihoodF(Jtriu, spin=None): #add lamba parameter* norm of J sum of abs values (sum aboslute values and multiply by lambda)
+def pseudo_loglikelihoodF(Jtriu, spin=None):
+    # add lamba parameter* norm of J sum of abs values
+    # (sum aboslute values and multiply by lambda)
     N = spin.shape[1]
-    B = spin.shape[0]
+    # B = spin.shape[0]
     beta = 1
     # require Jij = Jji
     J = np.zeros((N, N))
@@ -116,13 +128,14 @@ def maxPSL(Jguess, configurations, analytical_gradient=False):
     # print(LL)
     return Jinferred
 
+
 # should this be a class that has acess to confgiruations?
 # this function does it for each row indivdually!
 def maxPSL_parallel(Jguess, configurations, analytical_gradient=False):
     B, N = configurations.shape
-    print(Jguess.shape, configurations.shape)
+    # print(Jguess.shape, configurations.shape)
     # x = []
-    print(Jguess)
+    # print(Jguess)
     if analytical_gradient is False:
         gradient_vector = None
     else:
@@ -148,6 +161,7 @@ def maxPSL_parallel(Jguess, configurations, analytical_gradient=False):
     # print(len(r))
     r = np.array(r)
     # print(r.shape)
+    # Jinf = np.array(r) would simplify this
     Jinferred = r
     '''
     for spin in range(0, N):
@@ -185,3 +199,47 @@ def parallel_innerloop(inner_args):
     )
     # Jinferred[spin] = res.x
     return res.x
+
+
+# I should write this so it can read anyhing, not just the MC stuff!
+class PLMmax:
+    def __init__(self, fname, dset_label):
+        self.fname = fname
+        self.data_directory = pathlib.Path(fname).parent.absolute()
+        self.dset_label = dset_label
+        # how to make this apply alwasy?
+        # always call it configurations!
+        with Readhdf5_mc(fname) as f:
+            # self.ds = f.read_many_datasets("configurations")
+            self.ds = f.read_single_dataset(dset_label, "configurations")
+
+    def infer(self, initial_guess_type):
+        _, N = self.ds.shape
+        if initial_guess_type == 'nMF':
+            # i need to pick out speicfic datasets to do this!
+            print(self.ds.shape)
+            approx = analytical.Approximation(self.ds)
+            initial_guess = approx.nMF()
+        elif initial_guess_type == 'random':
+            initial_guess = np.random.rand(N, N)
+        else:
+            initial_guess = None
+            # return error!
+        self.p0 = initial_guess
+
+        s = timer()
+        PLM_model = maxPSL_parallel(self.p0, self.ds, True)
+        e = timer()
+        print('\n\n')
+        print(e - s)
+        PLM_model = (PLM_model + PLM_model.T) / 2
+        outpath = join(self.data_directory, 'PLM_inference_output.hdf5')
+        with h5py.File(outpath, 'w') as f:
+            # INCLUDE A THING THAT SAYS, IF TRUE MODEL KNOWN, DO BLAH
+            # SO OPTION FOR TRUE MODELS!
+            dataset = f.create_dataset(
+                'model:' + self.dset_label, data=PLM_model)
+            dataset[()] = PLM_model
+            print(list(f.keys()))
+        # save the inffered model
+        return PLM_model

@@ -3,11 +3,178 @@ import numpy as np
 import h5py
 
 from os.path import join
+from pathlib import Path
 
 from .core import aux
 from .core import measures as m
 from .core import montecarlo as mc
 from .core import io as io
+
+h5py.get_config().track_order = True
+
+
+# should I store the models themselves? I guess maybe?
+# i imagine they take up a lot of disk space!
+# md is dictionary!
+class MonteCarlo:
+    def __init__(self, run_directory):
+        self.run_dir = run_directory
+
+        self.N = None  # system_size
+        self.eq_cycles = None
+        self.prod_cycles = None
+        self.cycle_dumpfreq = None
+        self.reps = None
+        self.pname = None
+        self.pvals = None
+        self.md = None
+
+        self.models = None
+
+    def setHyperParameters(
+            self,
+            eq_cycles=1 * (10 ** 4),
+            prod_cycles=5 * (10 ** 4),
+            cycle_dumpfreq=10, reps=1):
+        self.eq_cycles = eq_cycles
+        self.prod_cycles = prod_cycles
+        self.cycle_dumpfreq = cycle_dumpfreq
+        self.reps = reps
+        self.get_metadata()
+
+    # 3D arrays of the interactions in the model
+    # first index for each model
+    # second two indicies describe said model
+    # check square?
+    def setSweepModels(self, models):
+        models = np.array(models)
+        N_sweep_points, system_size, _ = models.shape
+        self.N = system_size
+        self.models = models
+        self.get_metadata()
+
+    # needs to be np array for pvals
+    # name and values of sweep parameter
+    # descibe the name & values of parameter varied
+    # in models
+    def describeSweepParameters(self, pname, pvals):
+        self.pname = pname
+        self.pvals = np.array(pvals)
+        self.get_metadata()
+
+    def get_metadata(self):
+        if self.pvals is None:
+            pvals = 'None'
+        else:
+            pvals = self.pvals.tolist()
+        md = {
+            'RunDirectory': self.run_dir,
+            'SystemSize': self.N,
+            'EqCycles': self.eq_cycles,
+            'ProdCycles': self.prod_cycles,
+            'CycleDumpFreq': self.cycle_dumpfreq,
+            'Repetitions': self.reps,
+            'SweepParameterName': self.pname,
+            'SweepParameterValues': pvals}
+        self.md = md
+
+    def run(self):
+        Path(self.run_dir).mkdir(exist_ok=True)
+        samples_eq = int(self.eq_cycles / self.cycle_dumpfreq)
+        samples_prod = int(self.prod_cycles / self.cycle_dumpfreq)
+        samples_tot = samples_eq + samples_prod
+        with h5py.File(
+                self.md["RunDirectory"] + "/mc_output.hdf5",
+                "w") as f:
+            for key, val in self.md.items():
+                f.attrs[key] = val
+
+            for c, model in enumerate(self.models):
+                for rep in range(0, self.reps):
+                    initial_config = aux.initialise_ising_config(self.N, 0)
+
+                    eq_traj, eq_energy = mc.simulate(
+                        model, initial_config,
+                        self.eq_cycles, self.cycle_dumpfreq)
+                    eq_config = eq_traj[-1]
+
+                    prod_traj, prod_energy = mc.simulate(
+                        model, eq_config,
+                        self.prod_cycles, self.cycle_dumpfreq)
+
+                    group_label = (
+                        self.md['SweepParameterName'] +
+                        '={:.2f}'.format(self.md['SweepParameterValues'][c]))
+
+                    print(group_label)
+                    group = f.create_group(group_label)
+
+                    energy_ds = group.create_dataset(
+                        "energy",
+                        (samples_tot),
+                        compression="gzip")
+
+                    energy_ds[:samples_eq] = eq_energy
+                    energy_ds[samples_eq:] = prod_energy
+
+                    config_ds = group.create_dataset(
+                        "configurations",
+                        (samples_tot, self.N),
+                        compression="gzip")
+
+                    config_ds[:samples_eq, :] = eq_traj
+                    config_ds[samples_eq:] = prod_traj
+
+
+def mc_sweep(metadata, models):
+    # run_directory, models, metadata,
+    # MCCs_eq=100000, MCCs_prod=100000, reps=1, cycle_dumpfreq=10)
+    N = metadata["SystemSize"]
+    MCCs_eq = metadata["EqCycles"]
+    MCCs_prod = metadata["ProdCycles"]
+    cycle_dumpfreq = metadata["CycleDumpFreq"]
+    samples_eq = int(MCCs_eq / cycle_dumpfreq)
+    samples_prod = int(MCCs_prod / cycle_dumpfreq)
+    samples_tot = samples_eq + samples_prod
+    with h5py.File(
+            metadata["RunDirectory"] + "/mc_output.hdf5",
+            "w", track_order=True) as f:
+        for key, val in metadata.items():
+            f.attrs[key] = val
+
+        for c, model in enumerate(models):
+            for rep in range(0, metadata["Repetitions"]):
+                initial_config = aux.initialise_ising_config(N, 0)
+
+                eq_traj, eq_energy = mc.simulate(
+                    model, initial_config, MCCs_eq, cycle_dumpfreq)
+                eq_config = eq_traj[-1]
+
+                prod_traj, prod_energy = mc.simulate(
+                    model, eq_config, MCCs_prod, cycle_dumpfreq)
+
+                group_label = (
+                    metadata['SweepParameterName'] +
+                    '={:.2f}'.format(metadata['SweepParameterValues'][c]))
+
+                print(group_label)
+                group = f.create_group(group_label)
+
+                energy_ds = group.create_dataset(
+                    "energy",
+                    (samples_tot),
+                    compression="gzip")
+
+                energy_ds[:samples_eq] = eq_energy
+                energy_ds[samples_eq:] = prod_energy
+
+                config_ds = group.create_dataset(
+                    "configurations",
+                    (samples_tot, N),
+                    compression="gzip")
+
+                config_ds[:samples_eq, :] = eq_traj
+                config_ds[samples_eq:] = prod_traj
 
 
 def parameter_sweep(
@@ -19,7 +186,7 @@ def parameter_sweep(
     samples_prod = int(MCCs_prod / cycle_dumpfreq)
     samples_tot = samples_eq + samples_prod
     with h5py.File(
-            run_directory + "/full_dataset_mc.hdf5",
+            run_directory + "/mc_output.hdf5",
             "w", track_order=True) as f:
         for key, val in metadata.items():
             f.attrs[key] = val

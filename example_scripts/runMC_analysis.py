@@ -1,7 +1,7 @@
-import numpy as np
+# import numpy as np
 import matplotlib.pyplot as plt
 import inference.analysis.trajectory as trajectory
-import inference.io as io
+# import inference.io as io
 plt.style.use('~/Devel/styles/custom.mplstyle')
 
 '''
@@ -20,9 +20,9 @@ plt.show()
 '''
 
 # run_dirs = ['./N400_2/']
-run_dirs = ['./N100_ncompress/']
+run_dirs = ['./N100_1c/']
 # run_dirs = ['./N25_compress/']
-fname = run_dirs[0] + 'full_dataset_mc.hdf5'
+fname = run_dirs[0] + 'mc_output.hdf5'
 print(fname)
 trajectory.hdf5_plotObsAndFluc(fname)
 # should I put the two trajectories together?

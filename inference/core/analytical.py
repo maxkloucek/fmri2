@@ -26,7 +26,7 @@ class Approximation():
         JnMF = Pinv - Cinv
         np.fill_diagonal(JnMF, 0)
         # h = than-1(mi) -sidiag Jij)
-        h = h_nMF(self.si, JnMF)
+        h = h_nMF(self.si.astype('float64'), JnMF)
         # h = h_TAP(self.si, JnMF)
         np.fill_diagonal(JnMF, h)
         # print(Pinv)
@@ -40,6 +40,9 @@ class Approximation():
 def h_nMF(si, J):
     # h_i = arctanh(<s_i>) - sum_k(Jik * <s_k>)
     # np.fill_diagonal(J, 0)  # figure out how to fix this!!
+    # print(si.dtype)
+    # print(J.dtype)
+    # h = 0
     h = np.arctanh(si) - (np.diag(si) @ J)
     return h
 

@@ -8,7 +8,7 @@ import inference.io as iohdf5
 
 from os.path import join
 from os.path import isfile
-from sklearn.cluster import KMeans
+# from sklearn.cluster import KMeans
 
 
 def get_metadata(run_dir):
@@ -73,7 +73,7 @@ def traj(run_dir, statepoints, temps):
 
         ax[i].plot(m, '.')
         ax[i].plot(m**2, '.')
-        ax[i].set(title='T = {:.2f}'.format(Ts[state]))
+        # ax[i].set(title='T = {:.2f}'.format(Ts[state]))
     plt.show()
 
 
@@ -83,7 +83,7 @@ def magchi(run_dirs, start=0, window=0):
     fig, ax = plt.subplots()
     twinned_ax = ax.twinx()
     ax.set(xlabel='T', ylabel=r'$|m|$')
-    twinned_ax.set(ylabel=r'$\chi$')
+    twinned_ax.set(ylabel=r'$chi$')
     for run_dir in run_dirs:
         ms = []
         chis = []
@@ -110,7 +110,7 @@ def magchi(run_dirs, start=0, window=0):
             'o', color=cols[0], label=r'$|m|$')
         l2, = twinned_ax.plot(
             temps, chis,
-            'v', color=cols[1], label=r'$\chi$')
+            'v', color=cols[1], label=r'$chi$')
 
     lines = [l1, l2]
     ax.legend(lines, [line.get_label() for line in lines])
@@ -261,7 +261,7 @@ def hdf5_plotObsAndFluc(data_fname):
 
 def sgOP_calc(run_dir):
     md = get_metadata(run_dir)
-    N = md["SystemSize"]
+    # N = md["SystemSize"]
     sweep_parameters = np.array(md["SweepParameterValues"])
     ms = np.zeros(sweep_parameters.size)
     qs = np.zeros(sweep_parameters.size)
@@ -358,4 +358,3 @@ def trajectoryE(run_dir, statepoints, temps):
         ax[i].plot(energy_trajectory / 400, '.')
         ax[i].set(title='T = {:.2f}'.format(temps[state]))
     plt.show()
-
