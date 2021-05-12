@@ -1,10 +1,11 @@
 import numpy as np
 import h5py
 import pathlib
+import os.path
 # import matplotlib.pyplot as plt
 
 from timeit import default_timer as timer
-from os.path import join
+# from os.path import join
 
 from scipy.optimize import minimize
 from joblib import Parallel, delayed
@@ -209,9 +210,39 @@ class PLMmax:
         self.dset_label = dset_label
         # how to make this apply alwasy?
         # always call it configurations!
+        # this needs some renamining!
         with Readhdf5_mc(fname) as f:
             # self.ds = f.read_many_datasets("configurations")
             self.ds = f.read_single_dataset(dset_label, "configurations")
+
+    def writehdf5(self, inferred_model):
+        # print(self.data_directory)
+        model_file_path = os.path.join(self.data_directory, 'models.hdf5')
+        # print(model_file_path)
+        # x = os.path.isfile(model_file_path)
+        # i can simplify this with append I think!
+        # make it
+        with h5py.File(model_file_path, 'a') as f:
+            key_list = list(f['/'].keys())
+            # empty check
+            # print(key_list, len(key_list))
+            if not key_list:
+                grp_label = 'InferredModels:0'
+            elif key_list[0] == 'TrueModels' and len(key_list) < 2:
+                grp_label = 'InferredModels:0'
+            else:
+                grp_label = key_list[-1]
+                split = grp_label.split(':')
+                grp_label = split[0] + ':' + str(int(split[1]) + 1)
+            print(grp_label)
+            # this won't work for many things, it'll keep making
+            # more and more groups! I should rething this!
+            # or make the function read in ALL the GROUPS!
+            group = f.create_group(grp_label)
+            dataset = group.create_dataset(
+                self.dset_label, data=inferred_model)
+            dataset[()] = inferred_model
+            print(list(f['/'].keys()))
 
     def infer(self, initial_guess_type):
         _, N = self.ds.shape
@@ -233,7 +264,10 @@ class PLMmax:
         print('\n\n')
         print(e - s)
         PLM_model = (PLM_model + PLM_model.T) / 2
-        outpath = join(self.data_directory, 'PLM_inference_output.hdf5')
+        self.writehdf5(PLM_model)
+        '''
+        outpath = os.path.join(
+            self.data_directory, 'PLM_inference_output.hdf5')
         with h5py.File(outpath, 'w') as f:
             # INCLUDE A THING THAT SAYS, IF TRUE MODEL KNOWN, DO BLAH
             # SO OPTION FOR TRUE MODELS!
@@ -242,4 +276,5 @@ class PLMmax:
             dataset[()] = PLM_model
             print(list(f.keys()))
         # save the inffered model
+        '''
         return PLM_model

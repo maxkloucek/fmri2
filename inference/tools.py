@@ -1,5 +1,6 @@
 # general use functions that I might like to use anywhere
 import numpy as np
+# from scipy.linalg.special_matrices import triu
 # import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.fft import fft, fftfreq
@@ -93,3 +94,13 @@ def fourier_transform_multi_series(trajectories):
     spec_means = np.mean(spectra, axis=0)
     spec_std = np.std(spectra, axis=0)
     return frequencies, spec_means, spec_std
+
+
+# needs symmetric 2d array (matrix)
+# includes the diagonal when k=0!
+def triu_flat(matrix, k=0):
+    triu_indices = np.triu_indices_from(matrix, k)
+    upper_values = matrix[triu_indices]
+    return upper_values
+
+# include the r2 function from scipy.optimize here!

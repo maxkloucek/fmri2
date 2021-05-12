@@ -1,3 +1,4 @@
+from operator import mod
 import numpy as np
 # import matplotlib.pyplot as plt
 import h5py
@@ -83,6 +84,16 @@ class MonteCarlo:
         samples_eq = int(self.eq_cycles / self.cycle_dumpfreq)
         samples_prod = int(self.prod_cycles / self.cycle_dumpfreq)
         samples_tot = samples_eq + samples_prod
+        with h5py.File(
+                self.md["RunDirectory"] + "/models.hdf5", "w") as f:
+            true_model_group = f.create_group("TrueModels")
+            for c, model in enumerate(self.models):
+                ds_label = (
+                        self.md['SweepParameterName'] +
+                        '={:.2f}'.format(self.md['SweepParameterValues'][c]))
+                ds = true_model_group.create_dataset(ds_label, data=model)
+                ds[()] = model
+
         with h5py.File(
                 self.md["RunDirectory"] + "/mc_output.hdf5",
                 "w") as f:

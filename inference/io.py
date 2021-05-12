@@ -39,6 +39,10 @@ class Readhdf5:
             metadata_dictionary[key] = value
         return metadata_dictionary
 
+    def read_single_dataset(self, group_name, dset_name):
+        dataset = self.fin[group_name][dset_name][()]
+        return dataset
+
 
 class Readhdf5_mc(Readhdf5):
     def __init__(self, fname, show_metadata=True, prod_only=True):
