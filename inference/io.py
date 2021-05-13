@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import h5py
 
@@ -32,6 +33,9 @@ class Readhdf5:
             print(meta_data, value)
         print('---------------')
 
+    def keys(self):
+        return list(self.fin.keys())
+
     # metadata stored at root of hdf file i.e. at f['/']
     def get_metadata(self):
         metadata_dictionary = {}
@@ -42,6 +46,18 @@ class Readhdf5:
     def read_single_dataset(self, group_name, dset_name):
         dataset = self.fin[group_name][dset_name][()]
         return dataset
+
+
+class Readhdf5_model(Readhdf5):
+    def __init__(self, fname, show_metadata=True):
+        super().__init__(fname, show_metadata)
+
+    def read_multiple_models(self, group_label):
+        models = []
+        model_labels = list(self.fin[group_label].keys())
+        for model_label in model_labels:
+            models.append(self.read_single_dataset(group_label, model_label))
+        return np.array(models), model_labels
 
 
 class Readhdf5_mc(Readhdf5):

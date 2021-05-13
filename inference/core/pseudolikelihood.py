@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import h5py
 import pathlib
@@ -203,29 +204,58 @@ def parallel_innerloop(inner_args):
 
 
 # I should write this so it can read anyhing, not just the MC stuff!
+# groups many change!
 class PLMmax:
-    def __init__(self, fname, dset_label):
+    def __init__(
+            self, fname,
+            # contains_multiple_datasets=False,
+            dset_label=None,
+            file_reader=Readhdf5_mc):
         self.fname = fname
         self.data_directory = pathlib.Path(fname).parent.absolute()
-        self.dset_label = dset_label
+        self.dset_label = dset_label  # keep this for now!
+        # delete dset_label?!? or leave the option to pass one!
+        # i.e. if dste label = None do blah!
         # how to make this apply alwasy?
         # always call it configurations!
         # this needs some renamining!
-        with Readhdf5_mc(fname) as f:
-            # self.ds = f.read_many_datasets("configurations")
-            self.ds = f.read_single_dataset(dset_label, "configurations")
+        # have an option to chose only one!!
+        # needs same keys as before!
+        with file_reader(fname) as f:
+            self.key_list = f.keys()
+            self.data_array = f.read_many_datasets("configurations")
+            # should be 3 for multiple and 2 for single
+            # now I don't even need the option at the start anymore?
+            # just make sure you put single in a list so it works in loop!
+            N_dimensions = len(self.data_array.shape)
+            print(len(self.data_array.shape), self.data_array.shape)
+            if N_dimensions == 2:
+                self.data_array = [self.data_array[0]]
+            elif N_dimensions == 3:
+                pass
+            else:
+                raise Exception(
+                    ("Invalid Number of datasets; " +
+                        "Ndsets={}, only 2 or 3 valid").format(N_dimensions))
+            # self.ds = f.read_single_dataset(dset_label, "configurations")
+            # print(self.ds.shape)
 
-    def writehdf5(self, inferred_model):
-        # print(self.data_directory)
+    def write_to_group(self, inferred_model):
         model_file_path = os.path.join(self.data_directory, 'models.hdf5')
-        # print(model_file_path)
-        # x = os.path.isfile(model_file_path)
-        # i can simplify this with append I think!
-        # make it
+        with h5py.File(model_file_path, 'a') as f:
+            dataset = f[self.glabel].create_dataset(
+                self.dset_label, data=inferred_model)
+            dataset[()] = inferred_model
+            print(list(f['/'].keys()))
+
+    def setup_group(self):
+        model_file_path = os.path.join(self.data_directory, 'models.hdf5')
         with h5py.File(model_file_path, 'a') as f:
             key_list = list(f['/'].keys())
             # empty check
             # print(key_list, len(key_list))
+            # change this logic somehow!!
+            # think it might break, but fix that when you encounter it!
             if not key_list:
                 grp_label = 'InferredModels:0'
             elif key_list[0] == 'TrueModels' and len(key_list) < 2:
@@ -234,22 +264,31 @@ class PLMmax:
                 grp_label = key_list[-1]
                 split = grp_label.split(':')
                 grp_label = split[0] + ':' + str(int(split[1]) + 1)
-            print(grp_label)
-            # this won't work for many things, it'll keep making
-            # more and more groups! I should rething this!
-            # or make the function read in ALL the GROUPS!
-            group = f.create_group(grp_label)
-            dataset = group.create_dataset(
-                self.dset_label, data=inferred_model)
-            dataset[()] = inferred_model
-            print(list(f['/'].keys()))
+            self.glabel = grp_label
+            print(self.glabel)
+            f.create_group(grp_label)
 
     def infer(self, initial_guess_type):
-        _, N = self.ds.shape
+        # need to iterate through dset_labels as well!
+        self.setup_group()
+        print('----')
+        print(self.data_array.shape)
+        print('----')
+        print('Yolo', self.key_list)
+        print(self.dset_label)
+        for counter, dataset in enumerate(self.data_array):
+            self.dset_label = self.key_list[counter]
+            self.infer_single_dataset(initial_guess_type, dataset)
+            print(dataset.shape)
+
+    def infer_single_dataset(self, initial_guess_type, dataset):
+        # print(self.ds.shape)
+        _, N = dataset.shape
+        # self.setup_groups()
         if initial_guess_type == 'nMF':
             # i need to pick out speicfic datasets to do this!
-            print(self.ds.shape)
-            approx = analytical.Approximation(self.ds)
+            print(dataset.shape)
+            approx = analytical.Approximation(dataset)
             initial_guess = approx.nMF()
         elif initial_guess_type == 'random':
             initial_guess = np.random.rand(N, N)
@@ -259,22 +298,10 @@ class PLMmax:
         self.p0 = initial_guess
 
         s = timer()
-        PLM_model = maxPSL_parallel(self.p0, self.ds, True)
+        PLM_model = maxPSL_parallel(self.p0, dataset, True)
         e = timer()
         print('\n\n')
         print(e - s)
         PLM_model = (PLM_model + PLM_model.T) / 2
-        self.writehdf5(PLM_model)
-        '''
-        outpath = os.path.join(
-            self.data_directory, 'PLM_inference_output.hdf5')
-        with h5py.File(outpath, 'w') as f:
-            # INCLUDE A THING THAT SAYS, IF TRUE MODEL KNOWN, DO BLAH
-            # SO OPTION FOR TRUE MODELS!
-            dataset = f.create_dataset(
-                'model:' + self.dset_label, data=PLM_model)
-            dataset[()] = PLM_model
-            print(list(f.keys()))
-        # save the inffered model
-        '''
+        self.write_to_group(PLM_model)
         return PLM_model
