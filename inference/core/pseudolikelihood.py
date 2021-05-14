@@ -271,15 +271,15 @@ class PLMmax:
     def infer(self, initial_guess_type):
         # need to iterate through dset_labels as well!
         self.setup_group()
-        print('----')
-        print(self.data_array.shape)
-        print('----')
-        print('Yolo', self.key_list)
-        print(self.dset_label)
+        # print('----')
+        # print(self.data_array.shape)
+        # print('----')
+        # print('Yolo', self.key_list)
+        # print(self.dset_label)
         for counter, dataset in enumerate(self.data_array):
             self.dset_label = self.key_list[counter]
             self.infer_single_dataset(initial_guess_type, dataset)
-            print(dataset.shape)
+            # print(dataset.shape)
 
     def infer_single_dataset(self, initial_guess_type, dataset):
         # print(self.ds.shape)
@@ -287,7 +287,7 @@ class PLMmax:
         # self.setup_groups()
         if initial_guess_type == 'nMF':
             # i need to pick out speicfic datasets to do this!
-            print(dataset.shape)
+            # print(dataset.shape)
             approx = analytical.Approximation(dataset)
             initial_guess = approx.nMF()
         elif initial_guess_type == 'random':
@@ -300,8 +300,8 @@ class PLMmax:
         s = timer()
         PLM_model = maxPSL_parallel(self.p0, dataset, True)
         e = timer()
-        print('\n\n')
-        print(e - s)
+        # print('\n\n')
+        print(e - s) # MAKE THIS NICER! OR SAVE TO ANOTHER FILE?
         PLM_model = (PLM_model + PLM_model.T) / 2
         self.write_to_group(PLM_model)
         return PLM_model

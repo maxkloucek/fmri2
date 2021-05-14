@@ -7,7 +7,7 @@ from inference.core.pseudolikelihood import PLMmax
 
 
 plt.style.use('~/Devel/styles/custom.mplstyle')
-run_directory = 'PSL_ISING_TEST2'
+run_directory = 'PSL_ISING_TIGHTBANGER'
 
 # generate some datasets
 L = 5
@@ -16,12 +16,12 @@ N = L ** 2
 # temps = np.linspace(0.5, 15, 20)
 temps = [0.5, 1, 1.5]  # lists get converted to np arrays
 temps = [0.8, 1, 1.2]  # lists get converted to np arrays
-temps = np.linspace(0.8, 1.4, 5)
+temps = np.linspace(0.5, 10, 100)
 ising_models = [
     aux.ising_interaction_matrix_2D_PBC2(L, T=val) for val in temps]
 
-ising_models = [
-    aux.SK_interaction_matrix(N, T=val, h=0.0, jmean=0.0) for val in temps]
+# ising_models = [
+#    aux.SK_interaction_matrix(N, T=val, h=0.0, jmean=0.5) for val in temps]
 
 ising_sim = MonteCarlo(run_directory)
 ising_sim.setHyperParameters(

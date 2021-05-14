@@ -1,14 +1,13 @@
-from math import inf
 import numpy as np
 import matplotlib.pyplot as plt
-from numpy.lib.function_base import diff
 
 from sklearn.metrics import r2_score
+# from sklearn.metrics import mean_squared_error
 
 import inference.analysis.new as analysis
 import inference.tools as tools
-from inference.io import Readhdf5, Readhdf5_mc, Readhdf5_model
-from inference.core.pseudolikelihood import PLMmax
+from inference.io import Readhdf5_model  # Readhdf5, Readhdf5_mc
+# from inference.core.pseudolikelihood import PLMmax
 plt.style.use('~/Devel/styles/custom.mplstyle')
 
 
@@ -16,49 +15,35 @@ plt.style.use('~/Devel/styles/custom.mplstyle')
 # 2012 PRL: 1/(1/sqrt(N))<(Jinf - Jtrue)^2> * 0.5
 # Nuygen  : sqrt(sum(Jinf - Jtru)^2 / sum(Jtru)^ 2)
 # I could compare with the average value of a coupling?
-# sure why not
-def reconstruction_error(true_params, inf_params):
-    # mean squared difference error
-    N = true_params.size
-    # print(N)
-    diff = inf_params - true_params
-    diff_sqr = diff ** 2
-    mean_diff_sqr = np.mean(diff_sqr)
-    msde = (mean_diff_sqr ** 0.5) / np.sqrt(N)
-    return msde
+# https://stats.stackexchange.com
+# /questions/194278/meaning-of-reconstruction-error-in-pca-and-lda#
+# :~:text=The%20general%20definition%20of%20the,subspace%20(its%20'estimate').
+def reconstruction_error_nguyen(true_model, inferred_model):
+    true_params = tools.triu_flat(true_model)
+    inf_params = tools.triu_flat(inferred_model)
+    numerator = np.sum((inf_params - true_params) ** 2)
+    denominator = np.sum(true_params ** 2)
+    return np.sqrt(numerator / denominator)
+
+
+def reconstruction_error_PRL(true_model, inferred_model):
+    N, _ = true_model.shape
+    print(N)
+    true_params = tools.triu_flat(true_model)
+    inf_params = tools.triu_flat(inferred_model)
+    prefactor = 1 / (1 / np.sqrt(N))
+    average_diff_sqared = np.mean((inf_params - true_params) ** 2)
+    return prefactor * np.sqrt(average_diff_sqared)
 
 
 def matrix_error(true_model, inferred_model):
     diff_sqr = (inferred_model - true_model) ** 2
-    true_sum = np.sum(tools.triu_flat(true_model) ** 2)
-    # print(true_sum)
-    nguyen_error = (np.sum(tools.triu_flat(diff_sqr)) / true_sum) ** 0.5
-    # print(nguyen_error)
-    return diff_sqr  # / true_sum
-
-
-def relative_error_wrt_mean(true_model, inferred_model):
-    true_params = tools.triu_flat(true_model)
-    # inf_params = tools.triu_flat(inf_model)
-    # do two means?
-    true_parameter_mean_sqr = np.mean(true_params ** 2)
-    # print(true_parameter_mean_sqr)
-    diff_sqr = (inferred_model - true_model) ** 2
-    error_matrix = (diff_sqr / true_parameter_mean_sqr) ** 0.5
-    return error_matrix
+    return diff_sqr
 
 
 def mean_errors(true_model, inferred_model):
-    # true_params = tools.triu_flat(true_model)
-    # inf_params = tools.triu_flat(inf_model)
-    # do two means?
-    # true_parameter_mean_sqr = np.mean(true_params ** 2)
-    # print(true_parameter_mean_sqr)
     diff_sqr = ((inferred_model - true_model) ** 2) ** 0.5
-    abs_error = np.abs(inferred_model - true_model)
-    # print(np.allclose(diff_sqr, abs_error))
-    # error_matrix = (diff_sqr / true_parameter_mean_sqr) ** 0.5
-    # return abs_error
+    # abs_error = np.abs(inferred_model - true_model)
     return diff_sqr
 
 
@@ -72,8 +57,8 @@ def overview(true_model, inf_model):
     r2_val = r2_score(true_params, inf_params)
     # print(reconstruction_error(true_params, inf_params))
 
-    max_value = np.max(inf_params)
-    min_value = np.min(inf_params)
+    max_value = np.max(true_params)
+    min_value = np.min(true_params)
 
     fig, ax = plt.subplots(2, 2)
     ax = ax.ravel()
@@ -95,7 +80,8 @@ def overview(true_model, inf_model):
 
 
 # run_directory = 'PSL_ISING_TEST_CLEANAF'
-run_directory = 'PSL_ISING_TEST2'
+run_directory = 'PSL_ISING_TIGHTBANGER'
+# run_directory = 'PSL_ISING_TEST4'
 # fnameO = run_directory + '/mc_output.hdf5'
 fnameM = run_directory + '/models.hdf5'
 print('-----')
@@ -112,9 +98,43 @@ with Readhdf5_model(fnameM, show_metadata=True) as f:
     #  f.read_many_datasets('TrueModels')
     #  f.read_many_datasets('InferredModels:0')
 
+errors = []
+e2s = []
+temps = []
+# true_models = [true_models[-1]]
+# inf_models = [inf_models[-1]]
 for label, true_model, inf_model in zip(labels, true_models, inf_models):
+    true_params = tools.triu_flat(true_model)
+    inf_params = tools.triu_flat(inf_model)
+    # abs_error = np.mean(np.abs(inf_params - true_params))
+    e = reconstruction_error_nguyen(true_model, inf_model)
+    errors.append(e)
+    # they are the same!
+    # rmse = np.sqrt(mean_squared_error(true_params, inf_params))
+
+    # RMSE normalised by mean:
+    # nrmse = rmse/np.sqrt(np.mean(true_params**2))
+    # r2_score(true_params, inf_params)
+    # e2s.append(nrmse)
+    e2s.append(reconstruction_error_PRL(true_model, inf_model))
     print(label)
-    overview(true_model, inf_model)
+    T = float(label.split('=')[1])
+    temps.append(T)
+    # overview(true_model, inf_model)
+    # let's store the tmperatures in the metdata of Truemodesl
+
+M, chi = analysis.hdf5_Mchi(run_directory + '/mc_output.hdf5')
+
+plt.plot(temps, errors, label=r'$\epsilon$')
+plt.plot(temps, M, label=r'$\|m\|$')
+plt.plot(temps, chi, label=r'$\frac{\chi}{N}$')
+# plt.axvline(2.269, marker=',', c='k')
+plt.ylim(0, 1.5)
+plt.legend()
+plt.show()
+# plt.plot(temps, e2s, label='rando')
+
+# plt.show()
 '''
 diff_matrix = inf_model - true_model
 diff_params = tools.triu_flat(diff_matrix)
