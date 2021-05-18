@@ -70,7 +70,7 @@ def PSL_exponent(row_parameters, row_index, configuration):
 
 
 # this is what I want to minimize for each row!
-def PSL_row(row_parameters, row_index, configurations):
+def PSL_row(row_parameters, row_index, configurations, l1_penalty):
     # so stuff for each sample and then mean over samples
     log_probabilities = []
     for configuration in configurations:
@@ -81,10 +81,11 @@ def PSL_row(row_parameters, row_index, configurations):
         # print(configuration.shape, configuration)
         log_probabilities.append(np.log(1 + np.exp(-exponent)))
     row_pseudo_LL = np.mean(log_probabilities)
+    row_pseudo_LL += l1_penalty * l1reg(row_parameters)
     return row_pseudo_LL
 
 
-def PSL_row_gradient(row_parameters, row_index, configurations):
+def PSL_row_gradient(row_parameters, row_index, configurations, l1_penalty):
     # grad = 1/(e^x(r) + 1 ) * -2 * beta(=1) * thing
     B, N = configurations.shape
     grad_sums = np.zeros((B, N))
@@ -98,10 +99,20 @@ def PSL_row_gradient(row_parameters, row_index, configurations):
     # print(grad_sums.shape)
     # print(np.mean(grad_sums, axis=0))
     gradient_vector = np.mean(grad_sums, axis=0)
-    # print(gradient_vector.shape)
+    gradient_vector += l1_penalty * l1reg_gradient(row_parameters)
     return gradient_vector
 
 
+# I need to compare somehow! -> not sure if these are right yet
+# or not; haven't properly tested it!
+def l1reg(row_parameters):
+    return np.sum(np.abs(row_parameters))
+
+
+def l1reg_gradient(row_parameters):
+    return row_parameters / np.abs(row_parameters)
+
+'''
 # this function does it for each row indivdually!
 def maxPSL(Jguess, configurations, analytical_gradient=False):
     B, N = configurations.shape
@@ -129,11 +140,14 @@ def maxPSL(Jguess, configurations, analytical_gradient=False):
     # LL = np.sum(x)
     # print(LL)
     return Jinferred
+'''
 
 
 # should this be a class that has acess to confgiruations?
 # this function does it for each row indivdually!
-def maxPSL_parallel(Jguess, configurations, analytical_gradient=False):
+def maxPSL_parallel(
+        Jguess, configurations,
+        analytical_gradient=False, l1_penalty=0):
     B, N = configurations.shape
     # print(Jguess.shape, configurations.shape)
     # x = []
@@ -145,7 +159,7 @@ def maxPSL_parallel(Jguess, configurations, analytical_gradient=False):
     Jinferred = np.zeros_like(Jguess)
     # confgiruations =
     # iterator = zip(spins, guesses)
-    const_args = (configurations, gradient_vector)
+    const_args = (configurations, gradient_vector, l1_penalty)
     spins = np.arange(0, N)
     guesses = np.array([guess for guess in Jguess])
     '''
@@ -186,15 +200,16 @@ def maxPSL_parallel(Jguess, configurations, analytical_gradient=False):
 
 
 def parallel_innerloop(inner_args):
-    configurations, gradient_vector, spin, init_guess = inner_args
+    configurations, gradient_vector, l1_penalty, spin, init_guess = inner_args
     #  = loop_params
     # init_guess, spin = iterator
     print('Row {}'.format(spin))
     # do the minimisation (giving each row)
+    # print(l1_penalty)
     res = minimize(
         PSL_row,
         x0=init_guess,
-        args=(spin, configurations),
+        args=(spin, configurations, l1_penalty),
         jac=gradient_vector,
         method='L-BFGS-B',
         # options={'disp': True, 'maxiter': 20}
@@ -205,7 +220,7 @@ def parallel_innerloop(inner_args):
 
 # I should write this so it can read anyhing, not just the MC stuff!
 # groups many change!
-class PLMmax:
+class PLmax:
     def __init__(
             self, fname,
             # contains_multiple_datasets=False,
@@ -228,7 +243,7 @@ class PLMmax:
             # now I don't even need the option at the start anymore?
             # just make sure you put single in a list so it works in loop!
             N_dimensions = len(self.data_array.shape)
-            print(len(self.data_array.shape), self.data_array.shape)
+            # print(len(self.data_array.shape), self.data_array.shape)
             if N_dimensions == 2:
                 self.data_array = [self.data_array[0]]
             elif N_dimensions == 3:
@@ -246,7 +261,7 @@ class PLMmax:
             dataset = f[self.glabel].create_dataset(
                 self.dset_label, data=inferred_model)
             dataset[()] = inferred_model
-            print(list(f['/'].keys()))
+            # print(list(f['/'].keys()))
 
     def setup_group(self):
         model_file_path = os.path.join(self.data_directory, 'models.hdf5')
@@ -265,43 +280,35 @@ class PLMmax:
                 split = grp_label.split(':')
                 grp_label = split[0] + ':' + str(int(split[1]) + 1)
             self.glabel = grp_label
-            print(self.glabel)
+            # print(self.glabel)
             f.create_group(grp_label)
 
-    def infer(self, initial_guess_type):
-        # need to iterate through dset_labels as well!
+    def infer(
+            self, initial_guess_type, analytical_gradient=True, l1_penalty=0):
         self.setup_group()
-        # print('----')
-        # print(self.data_array.shape)
-        # print('----')
-        # print('Yolo', self.key_list)
-        # print(self.dset_label)
         for counter, dataset in enumerate(self.data_array):
             self.dset_label = self.key_list[counter]
-            self.infer_single_dataset(initial_guess_type, dataset)
-            # print(dataset.shape)
+            self.infer_single_dataset(
+                initial_guess_type, dataset, l1_penalty=l1_penalty)
 
-    def infer_single_dataset(self, initial_guess_type, dataset):
-        # print(self.ds.shape)
+    def infer_single_dataset(
+            self, initial_guess_type, dataset,
+            analytical_gradient=True, l1_penalty=0):
         _, N = dataset.shape
-        # self.setup_groups()
         if initial_guess_type == 'nMF':
-            # i need to pick out speicfic datasets to do this!
-            # print(dataset.shape)
             approx = analytical.Approximation(dataset)
             initial_guess = approx.nMF()
         elif initial_guess_type == 'random':
             initial_guess = np.random.rand(N, N)
         else:
             initial_guess = None
-            # return error!
         self.p0 = initial_guess
 
         s = timer()
-        PLM_model = maxPSL_parallel(self.p0, dataset, True)
+        PLM_model = maxPSL_parallel(
+            self.p0, dataset, analytical_gradient, l1_penalty)
         e = timer()
-        # print('\n\n')
-        print(e - s) # MAKE THIS NICER! OR SAVE TO ANOTHER FILE?
+        print('Inferred in: {:.2f}s'.format(e - s))
         PLM_model = (PLM_model + PLM_model.T) / 2
         self.write_to_group(PLM_model)
         return PLM_model

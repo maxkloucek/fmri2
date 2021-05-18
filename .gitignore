@@ -2,6 +2,7 @@
 **/__pycache__/*
 example_scripts/PSL_*
 example_scripts/N*
+example_scripts/datasets/*
 ./PSL_*
 ./*.egg-info
 **/*.hdf5

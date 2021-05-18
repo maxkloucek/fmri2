@@ -1,4 +1,3 @@
-from operator import mod
 import numpy as np
 # import matplotlib.pyplot as plt
 import h5py
@@ -6,7 +5,7 @@ import h5py
 from os.path import join
 from pathlib import Path
 
-from .core import aux
+from .core import utils
 from .core import measures as m
 from .core import montecarlo as mc
 from .core import io as io
@@ -80,6 +79,7 @@ class MonteCarlo:
         self.md = md
 
     def run(self):
+        # print(self.run_dir)
         Path(self.run_dir).mkdir(exist_ok=True)
         samples_eq = int(self.eq_cycles / self.cycle_dumpfreq)
         samples_prod = int(self.prod_cycles / self.cycle_dumpfreq)
@@ -102,7 +102,7 @@ class MonteCarlo:
 
             for c, model in enumerate(self.models):
                 for rep in range(0, self.reps):
-                    initial_config = aux.initialise_ising_config(self.N, 0)
+                    initial_config = utils.initialise_ising_config(self.N, 0)
 
                     eq_traj, eq_energy = mc.simulate(
                         model, initial_config,
@@ -155,7 +155,7 @@ def mc_sweep(metadata, models):
 
         for c, model in enumerate(models):
             for rep in range(0, metadata["Repetitions"]):
-                initial_config = aux.initialise_ising_config(N, 0)
+                initial_config = utils.initialise_ising_config(N, 0)
 
                 eq_traj, eq_energy = mc.simulate(
                     model, initial_config, MCCs_eq, cycle_dumpfreq)
@@ -204,7 +204,7 @@ def parameter_sweep(
 
         for c, model in enumerate(models):
             for rep in range(0, reps):
-                initial_config = aux.initialise_ising_config(N, 0)
+                initial_config = utils.initialise_ising_config(N, 0)
 
                 eq_traj, eq_energy = mc.simulate(
                     model, initial_config, MCCs_eq, cycle_dumpfreq)
@@ -269,7 +269,7 @@ def simple_sim(
     # sims to get repeats!
     N, _ = model.shape
     if init_config is None:
-        initial_config = aux.initialise_ising_config(N, 0)
+        initial_config = utils.initialise_ising_config(N, 0)
     else:
         initial_config = init_config
         # should do a check for the shape here or whatever!
@@ -302,7 +302,7 @@ def parameter_update(
 # calls correlations!
 def model_update(trajectory, data_spin_matrix, J_current, learning_rate=0.1):
     si_model, sij_model, si_sj_model = m.correlations(trajectory)
-    model_spin_matrix = aux.gen_spin_matrix(si_model, sij_model)
+    model_spin_matrix = utils.gen_spin_matrix(si_model, sij_model)
     dS = data_spin_matrix - model_spin_matrix
     # maybe I need a smaller learning rate!
     J_new = J_current + learning_rate * dS
@@ -325,7 +325,7 @@ def gradient_descent_anneal(
     model_trajectory = np.zeros((GD_steps, N, N))  # contains updated models!
     print(model_trajectory.shape, model_trajectory[0].shape)
     # I could probably have this bit in the loop, its a bit hacked atm!
-    initial_config = aux.initialise_ising_config(N, 0)
+    initial_config = utils.initialise_ising_config(N, 0)
     eq_traj, eq_energy = mc.simulate(
             model, initial_config, MCCs_init_eq, cycle_dumpfreq)
     model = model_update(eq_traj, data_spin_matrix, model)
@@ -362,7 +362,7 @@ def gradient_descent(
             run_directory, model, metadata, None,
             MCCs_eq, MCCs_prod, cycle_dumpfreq)
         si_model, sij_model, si_sj_model = m.correlations(trajectory)
-        model_spin_matrix = aux.gen_spin_matrix(si_model, sij_model)
+        model_spin_matrix = utils.gen_spin_matrix(si_model, sij_model)
         model = parameter_update(data_spin_matrix, model_spin_matrix, model)
         model_trajectory[step] = model
     return model_trajectory
@@ -389,7 +389,7 @@ class IsingInference:
 
         model = initial_model
         model_trajectory = np.zeros((GD_steps, self.N, self.N))
-        initial_config = aux.initialise_ising_config(self.N, 0)
+        initial_config = utils.initialise_ising_config(self.N, 0)
         diffs = []
         for step in range(0, GD_steps):
             print('GD step: {}'.format(step))
@@ -432,7 +432,7 @@ class IsingInference:
     def model_update(
             self, trajectory, J_current, learning_rate, step, GD_steps):
         si_model, sij_model, si_sj_model = m.correlations(trajectory)
-        self.model_spin_matrix = aux.gen_spin_matrix(si_model, sij_model)
+        self.model_spin_matrix = utils.gen_spin_matrix(si_model, sij_model)
         dS = self.data_spin_matrix - self.model_spin_matrix
         # maybe I need a smaller learning rate!
         # pass this as a dictonary?
@@ -480,7 +480,7 @@ class BoltzmannLearning:
 
         model = initial_model
         model_trajectory = np.zeros((GD_steps, self.N, self.N))
-        initial_config = aux.initialise_ising_config(self.N, 0)
+        initial_config = utils.initialise_ising_config(self.N, 0)
         diffs = []
         for step in range(0, GD_steps):
             print('GD step: {}'.format(step))
@@ -520,7 +520,7 @@ class BoltzmannLearning:
     def model_update(
             self, trajectory, J_current, learning_rate, step, GD_steps):
         si_model, sij_model, si_sj_model = m.correlations(trajectory)
-        self.model_spin_matrix = aux.gen_spin_matrix(si_model, sij_model)
+        self.model_spin_matrix = utils.gen_spin_matrix(si_model, sij_model)
         dS = self.data_spin_matrix - self.model_spin_matrix
         # maybe I need a smaller learning rate!
         # pass this as a dictonary?

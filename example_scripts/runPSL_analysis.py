@@ -1,12 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import r2_score
+# from sklearn.metrics import r2_score
 # from sklearn.metrics import mean_squared_error
 
 import inference.analysis.new as analysis
+import inference.analysis.planalysis as planalysis
 import inference.tools as tools
-from inference.io import Readhdf5_model  # Readhdf5, Readhdf5_mc
+from inference.io import Readhdf5_model, Readhdf5_mc # Readhdf5
 # from inference.core.pseudolikelihood import PLMmax
 plt.style.use('~/Devel/styles/custom.mplstyle')
 
@@ -18,12 +19,14 @@ plt.style.use('~/Devel/styles/custom.mplstyle')
 # https://stats.stackexchange.com
 # /questions/194278/meaning-of-reconstruction-error-in-pca-and-lda#
 # :~:text=The%20general%20definition%20of%20the,subspace%20(its%20'estimate').
+'''
 def reconstruction_error_nguyen(true_model, inferred_model):
     true_params = tools.triu_flat(true_model)
     inf_params = tools.triu_flat(inferred_model)
     numerator = np.sum((inf_params - true_params) ** 2)
     denominator = np.sum(true_params ** 2)
     return np.sqrt(numerator / denominator)
+'''
 
 
 def reconstruction_error_PRL(true_model, inferred_model):
@@ -36,56 +39,18 @@ def reconstruction_error_PRL(true_model, inferred_model):
     return prefactor * np.sqrt(average_diff_sqared)
 
 
-def matrix_error(true_model, inferred_model):
-    diff_sqr = (inferred_model - true_model) ** 2
-    return diff_sqr
-
-
-def mean_errors(true_model, inferred_model):
-    diff_sqr = ((inferred_model - true_model) ** 2) ** 0.5
-    # abs_error = np.abs(inferred_model - true_model)
-    return diff_sqr
-
-
-def overview(true_model, inf_model):
-    true_params = tools.triu_flat(true_model)
-    inf_params = tools.triu_flat(inf_model)
-
-    # model_error = matrix_error(true_model, inf_model)
-    # model_error = relative_error_wrt_mean(true_model, inf_model)
-    model_error = mean_errors(true_model, inf_model)
-    r2_val = r2_score(true_params, inf_params)
-    # print(reconstruction_error(true_params, inf_params))
-
-    max_value = np.max(true_params)
-    min_value = np.min(true_params)
-
-    fig, ax = plt.subplots(2, 2)
-    ax = ax.ravel()
-    ax[0].imshow(true_model, vmin=min_value, vmax=max_value)
-    ax[0].set(title='True Model')
-    ax[1].imshow(inf_model, vmin=min_value, vmax=max_value)
-    ax[1].set(title='Inferred Model')
-    ax[2].imshow(model_error, vmin=min_value, vmax=max_value)
-    ax[2].set(title='Error Matrix')
-    ax[3].axline(
-        (-1, -1), (1, 1), marker=',', color='k', transform=ax[3].transAxes)
-    ax[3].plot(
-        true_params, inf_params,
-        linestyle='None',
-        label=r'$R^{2}=$' + '{:.3f}'.format(r2_val))
-    ax[3].set(xlabel='True', ylabel='Inferred', title='Reconstruction')
-    plt.legend()
-    plt.show()
-
-
 # run_directory = 'PSL_ISING_TEST_CLEANAF'
-run_directory = 'PSL_ISING_TIGHTBANGER'
-# run_directory = 'PSL_ISING_TEST4'
-# fnameO = run_directory + '/mc_output.hdf5'
+# run_directory = 'PSL_ISING_TIGHTBANGER'
+# L1 helps if sparse, but what if setting falsely to
+# 0, when should be small not 0!!?
+# so maybe no lambda is best in this setting?
+run_directory = 'datasetSK/J0_0.0000'
+run_directory = 'datasetISING_N900/h_0.0000'
+fnameO = run_directory + '/mc_output.hdf5'
 fnameM = run_directory + '/models.hdf5'
-print('-----')
-with Readhdf5_model(fnameM, show_metadata=True) as f:
+'''
+print('-----') # this does the model error stuff!
+with Readhdf5_model(fnameM, show_metadata=False) as f:
     # labels = f.keys()
 
     # true_models = [f.read_single_dataset('TrueModels', 'T=1.00')]
@@ -101,35 +66,43 @@ with Readhdf5_model(fnameM, show_metadata=True) as f:
 errors = []
 e2s = []
 temps = []
-# true_models = [true_models[-1]]
-# inf_models = [inf_models[-1]]
+
 for label, true_model, inf_model in zip(labels, true_models, inf_models):
     true_params = tools.triu_flat(true_model)
     inf_params = tools.triu_flat(inf_model)
     # abs_error = np.mean(np.abs(inf_params - true_params))
-    e = reconstruction_error_nguyen(true_model, inf_model)
+    e = planalysis.reconstruction_error_nguyen(true_model, inf_model)
     errors.append(e)
-    # they are the same!
-    # rmse = np.sqrt(mean_squared_error(true_params, inf_params))
-
-    # RMSE normalised by mean:
-    # nrmse = rmse/np.sqrt(np.mean(true_params**2))
-    # r2_score(true_params, inf_params)
-    # e2s.append(nrmse)
     e2s.append(reconstruction_error_PRL(true_model, inf_model))
     print(label)
     T = float(label.split('=')[1])
     temps.append(T)
-    # overview(true_model, inf_model)
-    # let's store the tmperatures in the metdata of Truemodesl
-
+    # planalysis.overview(true_model, inf_model)
+'''
 M, chi = analysis.hdf5_Mchi(run_directory + '/mc_output.hdf5')
+with Readhdf5_mc(fnameO, False) as f:
+    trajs = f.read_many_datasets('configurations')
+    md = f.get_metadata()
+    temps = md['SweepParameterValues']
 
-plt.plot(temps, errors, label=r'$\epsilon$')
+ms = []
+qs = []
+# calculate q = 1/N * sum_i(<si>^2)
+for trajectory in trajs:
+    si_averages = np.mean(trajectory, axis=0)
+    m = np.mean(si_averages)
+    q = np.mean(si_averages ** 2)
+    qs.append(q)
+    ms.append(m)
+# print(trajectory.shape, si_averages.shape)
+# print(q)
+# plt.plot(temps, errors, label=r'$\epsilon$')
 plt.plot(temps, M, label=r'$\|m\|$')
+plt.plot(temps, ms, label=r'$m$', color='grey')
 plt.plot(temps, chi, label=r'$\frac{\chi}{N}$')
-# plt.axvline(2.269, marker=',', c='k')
-plt.ylim(0, 1.5)
+plt.plot(temps, qs, label=r'$q$')
+plt.axvline(2.269, marker=',', c='k')
+plt.ylim(-1.2, 1.2)
 plt.legend()
 plt.show()
 # plt.plot(temps, e2s, label='rando')

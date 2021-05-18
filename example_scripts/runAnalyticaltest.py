@@ -3,7 +3,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 
 import inference.core.io as io
-import inference.core.aux as aux
+import inference.core.utils as utils
 # import inference.core.measures as m
 import inference.core.pseudolikelihood as plmax
 import inference.core.analytical as analytical
@@ -36,7 +36,7 @@ pname = 'T'
 # i want to have histograms overlap!
 pvals = np.array([1.0])
 models = [
-    aux.SK_interaction_matrix(N, T=val, h=0.0, jmean=1.0) for val in pvals]
+    utils.SK_interaction_matrix(N, T=val, h=0.0, jmean=1.0) for val in pvals]
 
 model = models[0]
 
