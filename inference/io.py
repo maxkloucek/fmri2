@@ -1,4 +1,3 @@
-import re
 import numpy as np
 import h5py
 
@@ -88,6 +87,7 @@ class Readhdf5_mc(Readhdf5):
         for name in self.fin:
             datasets.append(self.read_single_dataset(name, dset_name))
         return np.array(datasets)
+
 
 # should say for my MCC stuff this is specicially!
 # I need to make sure metadata is always stroed

@@ -1,4 +1,5 @@
-import re
+# import sys
+
 import numpy as np
 import h5py
 import pathlib
@@ -6,6 +7,8 @@ import os.path
 # import matplotlib.pyplot as plt
 
 from timeit import default_timer as timer
+from tqdm import tqdm
+from scipy.special import expit
 # from os.path import join
 
 from scipy.optimize import minimize
@@ -79,9 +82,13 @@ def PSL_row(row_parameters, row_index, configurations, l1_penalty):
         # exponent = 2 * np.dot(row_spin_combinations, row_parameters)
         exponent = PSL_exponent(row_parameters, row_index, configuration)
         # print(configuration.shape, configuration)
+        # the non-scipy function is waaay quicker, like factor of 2!
+        # so just find a way to ignore these errors for now!
         log_probabilities.append(np.log(1 + np.exp(-exponent)))
+        # I can probably do this better / quicker!
+        # log_probabilities.append(expit(exponent))
     row_pseudo_LL = np.mean(log_probabilities)
-    row_pseudo_LL += l1_penalty * l1reg(row_parameters)
+    # row_pseudo_LL += l1_penalty * l1reg(row_parameters)
     return row_pseudo_LL
 
 
@@ -99,7 +106,8 @@ def PSL_row_gradient(row_parameters, row_index, configurations, l1_penalty):
     # print(grad_sums.shape)
     # print(np.mean(grad_sums, axis=0))
     gradient_vector = np.mean(grad_sums, axis=0)
-    gradient_vector += l1_penalty * l1reg_gradient(row_parameters)
+    # i.ve turned off l1 penalty for now to supress errors
+    # gradient_vector += l1_penalty * l1reg_gradient(row_parameters)
     return gradient_vector
 
 
@@ -149,63 +157,32 @@ def maxPSL_parallel(
         Jguess, configurations,
         analytical_gradient=False, l1_penalty=0):
     B, N = configurations.shape
-    # print(Jguess.shape, configurations.shape)
-    # x = []
-    # print(Jguess)
+
     if analytical_gradient is False:
         gradient_vector = None
     else:
         gradient_vector = PSL_row_gradient
     Jinferred = np.zeros_like(Jguess)
-    # confgiruations =
-    # iterator = zip(spins, guesses)
+
     const_args = (configurations, gradient_vector, l1_penalty)
     spins = np.arange(0, N)
     guesses = np.array([guess for guess in Jguess])
     '''
-    for spin, row_guess in zip(spins, guesses):
-        loop_args = (spin, row_guess)
-        inner_args = const_args + loop_args
-        row_params = parallel_innerloop(inner_args)
-        # print(row_params)
-        Jinferred[spin] = row_params
+    r = Parallel(n_jobs=-1, verbose=5)(
+        delayed(parallel_innerloop)(const_args + (i, j))
+        for i, j in zip(spins, guesses))
     '''
     r = Parallel(n_jobs=-1)(
         delayed(parallel_innerloop)(const_args + (i, j))
-        for i, j in zip(spins, guesses))
-    # print(r)
-    # print(len(r))
-    r = np.array(r)
-    # print(r.shape)
-    # Jinf = np.array(r) would simplify this
-    Jinferred = r
-    '''
-    for spin in range(0, N):
-        print('Row {} of {}'.format(spin, N))
-        # do the minimisation (giving each row)
-        res = minimize(
-            PSL_row,
-            x0=Jguess[spin],
-            args=(spin, configurations),
-            jac=gradient_vector,
-            method='L-BFGS-B',
-            # options={'disp': True, 'maxiter': 20}
-        )
-        Jinferred[spin] = res.x
-        # x.append(PSL_row(res.x, spin, configurations))
-    '''
-    # LL = np.sum(x)
-    # print(LL)
+        for i, j in tqdm(zip(spins, guesses), total=N))
+
+    Jinferred = np.array(r)
     return Jinferred
 
 
 def parallel_innerloop(inner_args):
     configurations, gradient_vector, l1_penalty, spin, init_guess = inner_args
-    #  = loop_params
-    # init_guess, spin = iterator
-    print('Row {}'.format(spin))
-    # do the minimisation (giving each row)
-    # print(l1_penalty)
+
     res = minimize(
         PSL_row,
         x0=init_guess,
@@ -214,7 +191,6 @@ def parallel_innerloop(inner_args):
         method='L-BFGS-B',
         # options={'disp': True, 'maxiter': 20}
     )
-    # Jinferred[spin] = res.x
     return res.x
 
 
@@ -287,9 +263,16 @@ class PLmax:
             self, initial_guess_type, analytical_gradient=True, l1_penalty=0):
         self.setup_group()
         for counter, dataset in enumerate(self.data_array):
+            s = timer()
+            print(
+                'Working on Condition: {} of {}'.format(
+                    counter + 1, len(self.data_array)))
+
             self.dset_label = self.key_list[counter]
             self.infer_single_dataset(
                 initial_guess_type, dataset, l1_penalty=l1_penalty)
+            e = timer()
+            print('Inferred in: {:.2f}s'.format(e - s))
 
     def infer_single_dataset(
             self, initial_guess_type, dataset,
@@ -304,11 +287,9 @@ class PLmax:
             initial_guess = None
         self.p0 = initial_guess
 
-        s = timer()
         PLM_model = maxPSL_parallel(
             self.p0, dataset, analytical_gradient, l1_penalty)
-        e = timer()
-        print('Inferred in: {:.2f}s'.format(e - s))
+
         PLM_model = (PLM_model + PLM_model.T) / 2
         self.write_to_group(PLM_model)
         return PLM_model

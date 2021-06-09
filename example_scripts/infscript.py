@@ -3,7 +3,7 @@ from os.path import join
 
 from inference.core.pseudolikelihood import PLmax
 
-run_base_directory = './datasetISING'
+run_base_directory = './datasetISINGshortSweep_N100'
 run_dirs = sorted(glob.glob(join(run_base_directory, '*')))
 print(run_dirs)
 for run_dir in run_dirs:

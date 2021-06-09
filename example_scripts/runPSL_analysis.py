@@ -44,12 +44,13 @@ def reconstruction_error_PRL(true_model, inferred_model):
 # L1 helps if sparse, but what if setting falsely to
 # 0, when should be small not 0!!?
 # so maybe no lambda is best in this setting?
-run_directory = 'datasetSK/J0_0.0000'
-run_directory = 'datasetISING_N900/h_0.0000'
+# run_directory = 'datasetSK/J0_0.0000'
+# run_directory = 'datasetISINGsmall_N25/h_0.0000'
+run_directory = 'datasetISINGshortSweep_N100/h_0.0556'
 fnameO = run_directory + '/mc_output.hdf5'
 fnameM = run_directory + '/models.hdf5'
-'''
-print('-----') # this does the model error stuff!
+
+print('-----')  # this does the model error stuff!
 with Readhdf5_model(fnameM, show_metadata=False) as f:
     # labels = f.keys()
 
@@ -78,7 +79,7 @@ for label, true_model, inf_model in zip(labels, true_models, inf_models):
     T = float(label.split('=')[1])
     temps.append(T)
     # planalysis.overview(true_model, inf_model)
-'''
+
 M, chi = analysis.hdf5_Mchi(run_directory + '/mc_output.hdf5')
 with Readhdf5_mc(fnameO, False) as f:
     trajs = f.read_many_datasets('configurations')
@@ -96,18 +97,21 @@ for trajectory in trajs:
     ms.append(m)
 # print(trajectory.shape, si_averages.shape)
 # print(q)
-# plt.plot(temps, errors, label=r'$\epsilon$')
-plt.plot(temps, M, label=r'$\|m\|$')
-plt.plot(temps, ms, label=r'$m$', color='grey')
-plt.plot(temps, chi, label=r'$\frac{\chi}{N}$')
-plt.plot(temps, qs, label=r'$q$')
-plt.axvline(2.269, marker=',', c='k')
-plt.ylim(-1.2, 1.2)
+min_error = np.min(errors)
+chi_max = np.max(chi) * 1.02
+fig, ax = plt.subplots()
+ax.plot(temps, errors, label=r'$\epsilon$')
+ax.plot(temps, M, label=r'$\|m\|$')
+# plt.plot(temps, ms, label=r'$m$', color='grey')
+ax.plot(temps, chi, label=r'$\frac{\chi}{N}$')
+# plt.plot(temps, qs, label=r'$q$')
+ax.axhline(min_error, marker=',', c='k')
+ax.set_ylim(0, chi_max)
+ax.set_yscale('linear')
 plt.legend()
 plt.show()
 # plt.plot(temps, e2s, label='rando')
 
-# plt.show()
 '''
 diff_matrix = inf_model - true_model
 diff_params = tools.triu_flat(diff_matrix)
@@ -115,8 +119,7 @@ true_params = tools.triu_flat(true_model)
 plt.hist(true_params, density=True, label='TrueDist')
 plt.hist(diff_params, density=True, label='ErrorDist')
 plt.show()
-'''
-'''
+
 line_true = true_model[0, :]
 line_inf = inf_model[0, :]
 

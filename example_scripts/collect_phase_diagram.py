@@ -13,12 +13,13 @@ from inference.io import Readhdf5_model
 plt.style.use('~/Devel/styles/custom.mplstyle')
 
 run_base_directory = './datasetSK'
+run_base_directory = './datasetISINGshortSweep_N100'
 run_dirs = sorted(glob.glob(join(run_base_directory, '*')))
 # error_phase_diagram:
 with Readhdf5_model(run_dirs[0] + '/models.hdf5', show_metadata=False) as f:
     _, labels = f.read_multiple_models('TrueModels')
-
-J0s = [float(run_dir.split('_')[1]) for run_dir in run_dirs]
+# change 2 / 1 from split for some reason
+J0s = [float(run_dir.split('_')[2]) for run_dir in run_dirs]
 temps = [float(label.split('=')[1]) for label in labels]
 
 print(len(temps))
@@ -45,7 +46,7 @@ for i, run_dir in enumerate(run_dirs[0:cut]):
 
 # I need to adjust this so the centres fit
 # today implement the metadata of the fitting!
-lim = 0.3
+lim = 1  # np.max(error_phase_diagram)
 limMin = np.min(error_phase_diagram)
 '''
 cm = mpl.cm.spring(np.linspace(1, 0, cut))
@@ -68,7 +69,9 @@ adjustments = np.array([-J0_spacing, J0_spacing, -temp_spacing, temp_spacing])
 ext = ext + adjustments
 
 plt.imshow(
-    error_phase_diagram, cmap='YlGnBu', vmax=lim, vmin=limMin, extent=ext)
+    error_phase_diagram, cmap='YlGnBu',
+    vmax=lim, vmin=limMin,
+    extent=ext)
 plt.xlabel(r'$J_{0}$')
 plt.ylabel(r'$T$')
 plt.title(r'Error $(\epsilon)$')
